@@ -1,3 +1,8 @@
+default:
+  tags:
+    - type/docker
+    - os/linux
+
 stages:
   - build
   - export
