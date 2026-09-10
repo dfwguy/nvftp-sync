@@ -20,7 +20,7 @@ A few adjustments were made along the way:
 - Used an existing shared runner tagged `type/docker` and `os/linux` so the pipeline could run.
 - Confirmed the image repository in GitLab Container Registry after the build completed successfully.
 - Stored the SSH private key as a GitLab **File** variable because normal masked variables do not work well for multi-line SSH private keys.
-- Used a **passwordless CI-only SSH key** for NVFTP because passphrase-protected keys do not work cleanly in non-interactive CI jobs.
+- Used a passwordless CI-only RSA PEM SSH key for NVFTP because the earlier key format was not compatible with the Alpine/OpenSSH environment in GitLab CI.
 
 
 
@@ -162,6 +162,8 @@ upload-to-nvftp:
     - mkdir -p ~/.ssh
     - cp "$NVFTP_PRIVATE_KEY" ~/.ssh/nvftp_key
     - chmod 600 ~/.ssh/nvftp_key
+    - head -n 1 ~/.ssh/nvftp_key
+    - tail -n 1 ~/.ssh/nvftp_key
     - ssh-keygen -y -f ~/.ssh/nvftp_key >/dev/null
   script:
     - |
@@ -172,6 +174,7 @@ upload-to-nvftp:
       put ${TAR_NAME}
       bye
       EOF
+
 ```
 
 This pipeline builds the image, pushes it to the project registry, exports it as a tarball, and uploads the tarball to NVFTP over SFTP.
@@ -181,25 +184,27 @@ This pipeline builds the image, pushes it to the project registry, exports it as
 Use a dedicated passwordless SSH key for CI:
 
 ```bash
-ssh-keygen -t ed25519 -C "micheller@nvidia.com" -f ~/.ssh/nvftp_ci_nopass -N ""
+ssh-keygen -t rsa -b 4096 -m PEM -C "micheller@nvidia.com" -f ~/.ssh/nvftp_ci_gitlab -N ""
 ```
 
-Upload the public key to NVFTP:
+Upload the public key to NVFTP (go to workspace sections > SSH Keys > Add SSH Key ):
 
 ```bash
-cat ~/.ssh/nvftp_ci_nopass.pub
+cat ~/.ssh/nvftp_ci_gitlab.pub
 ```
 
 Store the private key in GitLab as the `NVFTP_PRIVATE_KEY` **File** variable:
 
 ```bash
-cat ~/.ssh/nvftp_ci_nopass
+cat ~/.ssh/nvftp_ci_gitlab
 ```
+
+Grab the SSH username for the SSH Key you just stored from NVFTP. This will be your `NVFTP_USER` variable.
 
 You can verify connectivity locally with:
 
 ```bash
-sftp -i ~/.ssh/nvftp_ci_nopass <NVFTP_USER>@transfer.nvftp.nvidia.com
+sftp -i ~/.ssh/nvftp_ci_gitlab <NVFTP_USER>@transfer.nvftp.nvidia.com
 ```
 
 
