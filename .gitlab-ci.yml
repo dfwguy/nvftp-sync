@@ -54,15 +54,17 @@ upload-to-nvftp:
   before_script:
     - apk add --no-cache openssh-client
     - mkdir -p ~/.ssh
-    - printf "%s\n" "$NVFTP_PRIVATE_KEY" > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
+    - cp "$NVFTP_PRIVATE_KEY" ~/.ssh/nvftp_key
+    - chmod 600 ~/.ssh/nvftp_key
+    - ssh-keygen -y -f ~/.ssh/nvftp_key >/dev/null
   script:
     - |
-      sftp -i ~/.ssh/id_rsa \
+      sftp -i ~/.ssh/nvftp_key \
         -o StrictHostKeyChecking=no \
         "${NVFTP_USER}@transfer.nvftp.nvidia.com" <<EOF
       cd ${NVFTP_REMOTE_DIR}
       put ${TAR_NAME}
       bye
       EOF
+
 
