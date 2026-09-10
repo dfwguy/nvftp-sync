@@ -56,7 +56,6 @@ upload-to-nvftp:
     - mkdir -p ~/.ssh
     - cp "$NVFTP_PRIVATE_KEY" ~/.ssh/nvftp_key
     - chmod 600 ~/.ssh/nvftp_key
-    - file ~/.ssh/nvftp_key
     - head -n 1 ~/.ssh/nvftp_key
     - tail -n 1 ~/.ssh/nvftp_key
     - ssh-keygen -y -f ~/.ssh/nvftp_key >/dev/null
@@ -69,5 +68,3 @@ upload-to-nvftp:
       put ${TAR_NAME}
       bye
       EOF
-
-
