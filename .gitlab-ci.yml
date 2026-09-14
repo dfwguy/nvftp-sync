@@ -3,68 +3,140 @@ default:
     - type/docker
     - os/linux
 
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - when: never
+
 stages:
-  - build
-  - export
-  - upload
+  - pull_from_nvftp
+  - diff_against_target_main
+  - validate_candidate
+  - publish_sync_branch
+  - create_or_update_mr
 
 variables:
-  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-  TAR_NAME: flask-app-$CI_COMMIT_SHORT_SHA.tar.gz
+  GIT_DEPTH: "1"
+  TARGET_DEFAULT_BRANCH: "main"
+  TARGET_SYNC_PATH: "synced-content"
+  SYNC_BRANCH_PREFIX: "nvftp-sync"
+  NVFTP_HOST: "transfer.nvftp.nvidia.com"
 
-build-image:
-  stage: build
-  image: docker:24.0.5-cli
-  services:
-    - docker:24.0.5-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-  script:
-    - docker build -t "${IMAGE_TAG}" .
-    - docker push "${IMAGE_TAG}"
-
-export-image:
-  stage: export
-  image: docker:24.0.5-cli
-  services:
-    - docker:24.0.5-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-  script:
-    - docker pull "${IMAGE_TAG}"
-    - docker save "${IMAGE_TAG}" | gzip > "${TAR_NAME}"
-    - ls -lh "${TAR_NAME}"
-  artifacts:
-    paths:
-      - ${TAR_NAME}
-    expire_in: 7 days
-
-upload-to-nvftp:
-  stage: upload
-  image: alpine:latest
-  needs:
-    - job: export-image
-      artifacts: true
+pull-from-nvftp:
+  stage: pull_from_nvftp
+  image: alpine:3.20
   before_script:
     - apk add --no-cache openssh-client
-    - mkdir -p ~/.ssh
-    - cp "$NVFTP_PRIVATE_KEY" ~/.ssh/nvftp_key
-    - chmod 600 ~/.ssh/nvftp_key
-    - head -n 1 ~/.ssh/nvftp_key
-    - tail -n 1 ~/.ssh/nvftp_key
-    - ssh-keygen -y -f ~/.ssh/nvftp_key >/dev/null
+  script:
+    - ./scripts/nvftp_pull.sh
+  artifacts:
+    when: always
+    paths:
+      - tmp/nvftp-source/
+    expire_in: 7 days
+
+diff-against-target-main:
+  stage: diff_against_target_main
+  image: alpine:3.20
+  needs:
+    - job: pull-from-nvftp
+      artifacts: true
+  before_script:
+    - apk add --no-cache git rsync
+  script:
+    - ./scripts/clone_target.sh
+    - ./scripts/prepare_candidate.sh
+    - ./scripts/detect_changes.sh
+  artifacts:
+    when: always
+    reports:
+      dotenv: reports/sync.env
+    paths:
+      - tmp/nvftp-source/
+      - reports/
+    expire_in: 7 days
+
+validate-candidate:
+  stage: validate_candidate
+  image: python:3.12-slim
+  needs:
+    - job: diff-against-target-main
+      artifacts: true
+  before_script:
+    - apt-get update
+    - apt-get install --yes --no-install-recommends git make rsync
   script:
     - |
-      sftp -i ~/.ssh/nvftp_key \
-        -o StrictHostKeyChecking=no \
-        "${NVFTP_USER}@transfer.nvftp.nvidia.com" <<EOF
-      cd ${NVFTP_REMOTE_DIR}
-      put ${TAR_NAME}
-      bye
-      EOF
+      if [ "$HAS_CHANGES" != "true" ]; then
+        printf '%s\n' 'No NVFTP changes detected; validation skipped.' | tee reports/test.log
+        exit 0
+      fi
+    - ./scripts/clone_target.sh tmp/target-repo "$TARGET_BASE_SHA"
+    - ./scripts/prepare_candidate.sh
+    - |
+      set +e
+      ./scripts/run_tests.sh >reports/test.log 2>&1
+      test_status=$?
+      set -e
+      cat reports/test.log
+      exit "$test_status"
+  artifacts:
+    when: always
+    reports:
+      dotenv: reports/sync.env
+    paths:
+      - tmp/nvftp-source/
+      - reports/
+    expire_in: 7 days
+
+publish-sync-branch:
+  stage: publish_sync_branch
+  image: alpine:3.20
+  needs:
+    - job: validate-candidate
+      artifacts: true
+  before_script:
+    - apk add --no-cache git rsync
+  script:
+    - |
+      if [ "$HAS_CHANGES" != "true" ]; then
+        cp reports/sync.env reports/publish.env
+        printf '%s\n' 'PUBLISHED_BRANCH=' >>reports/publish.env
+        printf '%s\n' 'No NVFTP changes detected; branch publication skipped.'
+        exit 0
+      fi
+    - ./scripts/clone_target.sh tmp/target-repo "$TARGET_BASE_SHA"
+    - ./scripts/prepare_candidate.sh
+    - ./scripts/detect_changes.sh
+    - ./scripts/publish_sync_branch.sh
+  artifacts:
+    when: always
+    reports:
+      dotenv: reports/publish.env
+    paths:
+      - reports/
+    expire_in: 7 days
+
+create-or-update-mr:
+  stage: create_or_update_mr
+  image: alpine:3.20
+  needs:
+    - job: publish-sync-branch
+      artifacts: true
+  before_script:
+    - apk add --no-cache curl jq
+  script:
+    - |
+      if [ "$HAS_CHANGES" != "true" ]; then
+        printf '%s\n' 'No NVFTP changes detected; merge request creation skipped.'
+        exit 0
+      fi
+    - ./scripts/create_or_update_mr.sh
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    expire_in: 7 days

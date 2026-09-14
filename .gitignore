@@ -1,1 +1,6 @@
 *.tar.gz
+reports/
+tmp/
+__pycache__/
+*.py[cod]
+.venv/

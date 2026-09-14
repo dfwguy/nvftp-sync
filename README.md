@@ -1,257 +1,134 @@
-# GitLab to NVFTP Container Transfer
+# NVFTP to GitLab inbound sync automation
 
-This repository shows a working end-to-end workflow for building a Flask container image in [GitLab](https://gitlab-master.nvidia.com), exporting it as a `.tar.gz`, and uploading that artifact to [NVFTP](https://nvftp.nvidia.com/) over SFTP. The final version uses Docker-based GitLab CI, an existing shared runner, and a dedicated passwordless SSH key for CI uploads.
+This repository orchestrates inbound synchronization from an NVFTP folder into a separate GitLab target repository. The target repository remains the reviewed source of truth: this automation can propose changes on a sync branch and create or update a merge request, but it never pushes to `main` and never merges an MR.
 
-## What this pipeline does
+The automation and target repositories must be different projects. The scripts reject a target project path or ID that matches this automation project.
 
-The pipeline has three stages:
+## Pipeline behavior
 
-1. Build the Flask container image and push it to GitLab Container Registry.
-2. Pull the image back and export it as a compressed `.tar.gz` artifact.
-3. Upload the tarball to NVFTP using SFTP with a passwordless SSH key.
+| NVFTP comparison | Validation | Result |
+| --- | --- | --- |
+| No changes | Skipped | Pipeline succeeds; no target branch or MR is created |
+| Changes | Fails | Pipeline fails; reports, changed-file metadata, and the test log are retained |
+| Changes | Passes | A deterministic target branch is updated and an MR into `main` is created or updated |
 
+Human review and merge are always required.
 
+## Pipeline stages
 
-## Final setup decisions
+1. `pull_from_nvftp` downloads the configured remote folder over SFTP into a temporary artifact.
+2. `diff_against_target_main` clones the separate target repository, overlays the download at `TARGET_SYNC_PATH` with deletion awareness, and records the diff against the target's `main` commit.
+3. `validate_candidate` reconstructs that exact candidate commit and runs `TARGET_TEST_COMMAND` from the target repository root.
+4. `publish_sync_branch` runs only after validation succeeds and pushes `nvftp-sync/<folder-name>` to the target repository.
+5. `create_or_update_mr` creates an MR in the target project, or updates the existing open MR for the same source branch.
 
-A few adjustments were made along the way:
+The target base commit is carried between jobs as `TARGET_BASE_SHA`. This ensures the tested tree and published tree use the same target `main` snapshot.
 
-- Switched from Kaniko to Docker-based CI because GitLab documents the original Kaniko project as no longer maintained.
-- Used an existing shared runner tagged `type/docker` and `os/linux` so the pipeline could run.
-- Confirmed the image repository in GitLab Container Registry after the build completed successfully.
-- Stored the SSH private key as a GitLab **File** variable because normal masked variables do not work well for multi-line SSH private keys.
-- Used a passwordless CI-only RSA PEM SSH key for NVFTP because the earlier key format was not compatible with the Alpine/OpenSSH environment in GitLab CI.
+## Required GitLab CI/CD variables
 
+Configure these in the automation project under **Settings → CI/CD → Variables**.
 
+| Variable | Type | Purpose |
+| --- | --- | --- |
+| `NVFTP_USER` | Variable | NVFTP-generated SSH username |
+| `NVFTP_PRIVATE_KEY` | **File** | Dedicated passwordless RSA PEM private key |
+| `NVFTP_REMOTE_DIR` | Variable | Remote NVFTP folder to download |
+| `GITLAB_API_TOKEN` | Masked, protected Variable | Token whose user can clone, push branches, and manage MRs in the target project |
+| `TARGET_PROJECT_PATH` | Variable | Target namespace/project, for example `team/product-repo` |
+| `TARGET_PROJECT_ID` | Variable | Numeric GitLab project ID for the target repository |
+| `TARGET_TEST_COMMAND` | Variable | The target repository's standard gating command |
 
-## Repository contents
+The token needs API access plus repository read/write permission in the target project. The token owner must have a target-project role that permits branch pushes and MR creation. Do not configure it with permission to bypass target protected-branch rules.
 
+A typical Python target test command is:
 
+~~~text
+python -m pip install -r requirements.txt && python -m pytest
+~~~
 
-### `app.py`
+The command runs from the reconstructed target repository root. The validation job currently uses `python:3.12-slim` and installs `git`, `make`, and `rsync`. If the target suite needs a different runtime, change only the `validate-candidate` image/setup in `.gitlab-ci.yml`; the gating behavior remains the same.
 
-```python
-from flask import Flask
+### Optional variables
 
-app = Flask(__name__)
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `TARGET_DEFAULT_BRANCH` | `main` | Target branch used as the comparison base and MR target |
+| `TARGET_SYNC_PATH` | `synced-content` | Repo-relative path replaced by the NVFTP folder contents |
+| `TARGET_REPO_URL` | Derived from `CI_SERVER_URL` and `TARGET_PROJECT_PATH` | HTTPS clone/push URL for a target on another GitLab host or at a custom URL |
+| `TARGET_GITLAB_API_URL` | `CI_API_V4_URL` | GitLab v4 API base URL for the target project |
+| `SYNC_BRANCH_PREFIX` | `nvftp-sync` | Prefix for deterministic target branches |
+| `SYNC_SOURCE_NAME` | NVFTP folder basename | Human-readable source label used in branch/MR metadata |
+| `NVFTP_HOST` | `transfer.nvftp.nvidia.com` | NVFTP SFTP host |
+| `NVFTP_KNOWN_HOSTS` | unset | Known-hosts content or File variable; when set, strict host verification is enabled |
+| `GITLAB_SYNC_USER_NAME` | `NVFTP Sync Bot` | Commit author name |
+| `GITLAB_SYNC_USER_EMAIL` | `nvftp-sync@noreply.invalid` | Commit author email |
 
-@app.route("/")
-def hello():
-    return "Hello from sample GitLab-to-NVFTP container!\n"
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
-```
-
-
-
-### `requirements.txt`
-
-```txt
-flask==3.0.3
-```
-
-
-
-### `Dockerfile`
-
-```dockerfile
-FROM python:3.12-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app.py .
-EXPOSE 8080
-
-CMD ["python", "app.py"]
-```
-
-
-
-## GitLab CI/CD variables
-
-In **Project → Settings → CI/CD → Variables**, create:
-
-
-| Variable            | Type     | Value                                                               |
-| ------------------- | -------- | ------------------------------------------------------------------- |
-| `NVFTP_USER`        | Variable | NVFTP-generated SSH username                                        |
-| `NVFTP_PRIVATE_KEY` | File     | Full contents of the passwordless private key                       |
-| `NVFTP_REMOTE_DIR`  | Variable | Destination directory in NVFTP, for example `/incoming/containers/` |
-
-
-For `NVFTP_PRIVATE_KEY`, paste the full private key block:
-
-```txt
------BEGIN OPENSSH PRIVATE KEY-----
-...
------END OPENSSH PRIVATE KEY-----
-```
-
-Do not paste only the base64 body, and do not paste the public key that starts with `ssh-ed25519`.
-
-## Runner requirements
-
-The pipeline was run using a shared runner with tags:
-
-- `type/docker`
-- `os/linux`.
-
-
-
-## `.gitlab-ci.yml`
-
-```yaml
-default:
-  tags:
-    - type/docker
-    - os/linux
-
-stages:
-  - build
-  - export
-  - upload
-
-variables:
-  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-  TAR_NAME: flask-app-$CI_COMMIT_SHORT_SHA.tar.gz
-
-build-image:
-  stage: build
-  image: docker:24.0.5-cli
-  services:
-    - docker:24.0.5-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-  script:
-    - docker build -t "${IMAGE_TAG}" .
-    - docker push "${IMAGE_TAG}"
-
-export-image:
-  stage: export
-  image: docker:24.0.5-cli
-  services:
-    - docker:24.0.5-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-  script:
-    - docker pull "${IMAGE_TAG}"
-    - docker save "${IMAGE_TAG}" | gzip > "${TAR_NAME}"
-    - ls -lh "${TAR_NAME}"
-  artifacts:
-    paths:
-      - ${TAR_NAME}
-    expire_in: 7 days
-
-upload-to-nvftp:
-  stage: upload
-  image: alpine:latest
-  needs:
-    - job: export-image
-      artifacts: true
-  before_script:
-    - apk add --no-cache openssh-client
-    - mkdir -p ~/.ssh
-    - cp "$NVFTP_PRIVATE_KEY" ~/.ssh/nvftp_key
-    - chmod 600 ~/.ssh/nvftp_key
-    - head -n 1 ~/.ssh/nvftp_key
-    - tail -n 1 ~/.ssh/nvftp_key
-    - ssh-keygen -y -f ~/.ssh/nvftp_key >/dev/null
-  script:
-    - |
-      sftp -i ~/.ssh/nvftp_key \
-        -o StrictHostKeyChecking=no \
-        "${NVFTP_USER}@transfer.nvftp.nvidia.com" <<EOF
-      cd ${NVFTP_REMOTE_DIR}
-      put ${TAR_NAME}
-      bye
-      EOF
-
-```
-
-This pipeline builds the image, pushes it to the project registry, exports it as a tarball, and uploads the tarball to NVFTP over SFTP.
+`TARGET_SYNC_PATH` must be a safe repository-relative subdirectory. Root paths, `.git`, and parent traversal are rejected. The sync uses checksum comparison and `rsync --delete`, so content changes are detected even when size/timestamps match, and files absent from NVFTP are proposed as deletions.
 
 ## NVFTP key setup
 
-Use a dedicated passwordless SSH key for CI:
+Use a dedicated passwordless RSA key in PEM format because that is the proven non-interactive format for this runner/OpenSSH environment:
 
-```bash
-ssh-keygen -t rsa -b 4096 -m PEM -C "micheller@nvidia.com" -f ~/.ssh/nvftp_ci_gitlab -N ""
-```
+~~~bash
+ssh-keygen -t rsa -b 4096 -m PEM -C "nvftp-gitlab-ci" -f ~/.ssh/nvftp_ci_gitlab -N ""
+~~~
 
-Upload the public key to NVFTP (go to workspace sections > SSH Keys > Add SSH Key ):
+Upload the public key to the NVFTP workspace:
 
-```bash
+~~~bash
 cat ~/.ssh/nvftp_ci_gitlab.pub
-```
+~~~
 
-Store the private key in GitLab as the `NVFTP_PRIVATE_KEY` **File** variable:
+Store the full private key file contents in `NVFTP_PRIVATE_KEY` as a GitLab **File** variable. The pull helper verifies that the variable resolves to a file and that the key can be read without a passphrase. Key contents are never printed.
 
-```bash
-cat ~/.ssh/nvftp_ci_gitlab
-```
+For stronger host verification, store the trusted NVFTP known-hosts entry in `NVFTP_KNOWN_HOSTS` as either a normal variable or a File variable.
 
-Grab the SSH username for the SSH Key you just stored from NVFTP. This will be your `NVFTP_USER` variable.
+## Target repository setup
 
-You can verify connectivity locally with:
+1. Create a project access token or bot/user token that can read and write the target repository and call the merge-request API.
+2. Give that identity the minimum target-project role needed to push non-protected branches and create MRs.
+3. Keep `main` protected and require normal human review/approval.
+4. Set `TARGET_PROJECT_PATH` and `TARGET_PROJECT_ID` to the target project, not this automation project.
+5. Set `TARGET_TEST_COMMAND` to the same gating suite maintainers trust for normal target changes.
+6. Ensure `TARGET_SYNC_PATH` is the directory intended to mirror the NVFTP source folder.
 
-```bash
-sftp -i ~/.ssh/nvftp_ci_gitlab <NVFTP_USER>@transfer.nvftp.nvidia.com
-```
+The branch name is deterministic per source label, for example `nvftp-sync/release-bundle`. Reruns update that branch and the matching open MR instead of creating duplicates. Publication uses `--force-with-lease` so a concurrent or unexpected branch update causes the job to fail instead of being silently overwritten.
 
+## Running the workflow
 
+The CI workflow accepts manual, scheduled, API, and trigger pipelines. Ordinary push pipelines do not start an NVFTP sync, which avoids accidental runs without protected credentials.
 
-## How to verify the workflow
+For a manual run:
 
+1. Open **Build → Pipelines → New pipeline** in the automation project.
+2. Select a protected ref that can access the protected CI/CD variables.
+3. Run the pipeline.
+4. Review artifacts from `diff-against-target-main` and `validate-candidate`.
+5. If validation passed and a diff exists, follow the target MR URL printed by the last job.
 
+For scheduled polling, create a pipeline schedule on the same protected ref. Each run reconciles the full NVFTP folder against the configured target path.
 
-### 1. Verify the image in GitLab
+## Artifacts and audit trail
 
-Open **Deploy → Container Registry**. You should see the `nvftp-sync` repository with at least one published tag if the image push succeeded.
+The pipeline retains artifacts for seven days:
 
-### 2. Verify the artifact
+- `changed_files.txt`: added, modified, and deleted target paths
+- `diff_summary.txt`: Git diff statistics
+- `git_status.txt`: porcelain status for the candidate
+- `sync.env`: non-secret decision metadata and the pinned target base SHA
+- `test.log`: complete target validation output
+- `mr_description.md` and API response metadata when an MR is published
+- the pulled NVFTP snapshot through validation, to help diagnose failures
 
-After `export-image` completes, the job artifacts should include:
+No private key or GitLab token is stored in artifacts. Git authentication uses an askpass helper, so the target token is not embedded in a repository remote URL.
 
-```txt
-flask-app-<commit>.tar.gz
-```
+## Safety properties
 
-
-
-### 3. Verify the upload in NVFTP
-
-After `upload-to-nvftp` completes, the `.tar.gz` should appear in your target NVFTP directory.
-
-## Running the exported image later
-
-After downloading the tarball from NVFTP:
-
-```bash
-gunzip -c flask-app-a1b2c3d.tar.gz | docker load
-docker run --rm -p 8080:8080 gitlab-master.nvidia.com:5005/<group>/<project>:a1b2c3d
-```
-
-The sample app should then be reachable on port 8080.
-```bash 
-curl http://localhost:8080
-Hello from sample GitLab-to-NVFTP container!
-```
-## Lessons learned
-
-- A pending GitLab job usually means no eligible runner is attached.
-- The Container Registry UI is enough to confirm that the image push succeeded.
-- Multi-line SSH private keys should be stored as **File** variables in GitLab.
-- If a local key prompts for a passphrase, it is not ideal for non-interactive CI use.
-- A passwordless CI-only SSH key is the simplest reliable way to authenticate NVFTP uploads in GitLab CI.
-
----
-
+- The automation project and target/source-of-truth project are explicitly separate.
+- Candidate content is never committed to the automation repository.
+- No-diff runs never push a branch or call the MR API.
+- Failed validation stops the pipeline before branch publication.
+- Candidate branches are based on the exact target `main` SHA used during validation.
+- No command pushes to `main`.
+- The MR helper only lists, creates, or updates MRs; it has no merge operation.
+- Human review and merge remain mandatory.
