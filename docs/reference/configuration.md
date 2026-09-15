@@ -20,11 +20,15 @@ Without `NVFTP_KNOWN_HOSTS`, the scripts use OpenSSH's `accept-new` policy. With
 
 ## GitLab-to-NVFTP variables
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `NVFTP_UPLOAD_DIR` | Yes | Remote directory receiving the image archive |
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `NVFTP_UPLOAD_DIR` | Yes | — | Remote directory receiving the image archive |
+| `OUTBOUND_BUILD_CONTEXT` | No | `examples/gitlab-to-nvftp-container` | Docker build context |
+| `OUTBOUND_DOCKERFILE` | No | `examples/gitlab-to-nvftp-container/Dockerfile` | Dockerfile path relative to the repository root |
+| `OUTBOUND_IMAGE_TAG` | No | `$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA` | Registry image built and exported by the pipeline |
+| `OUTBOUND_ARCHIVE_NAME` | No | `container-image-$CI_COMMIT_SHORT_SHA.tar.gz` | Artifact name and remote upload filename |
 
-GitLab supplies the container-registry variables used by the build and export jobs. The resulting archive is named `flask-app-$CI_COMMIT_SHORT_SHA.tar.gz`.
+The defaults exercise the foundation repository's example. A production NVIS OVA repository normally sets `OUTBOUND_BUILD_CONTEXT=.` and points `OUTBOUND_DOCKERFILE` at its own Dockerfile.
 
 ## NVFTP-to-GitLab variables
 

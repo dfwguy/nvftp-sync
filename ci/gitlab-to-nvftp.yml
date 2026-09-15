@@ -11,12 +11,11 @@ build-image:
   variables:
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_CERTDIR: "/certs"
-    IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   script:
-    - docker build -t "${IMAGE_TAG}" .
-    - docker push "${IMAGE_TAG}"
+    - docker build --file "${OUTBOUND_DOCKERFILE}" --tag "${OUTBOUND_IMAGE_TAG}" "${OUTBOUND_BUILD_CONTEXT}"
+    - docker push "${OUTBOUND_IMAGE_TAG}"
 
 export-image:
   extends: .gitlab-to-nvftp
@@ -29,17 +28,15 @@ export-image:
   variables:
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_CERTDIR: "/certs"
-    IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-    TAR_NAME: flask-app-$CI_COMMIT_SHORT_SHA.tar.gz
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   script:
-    - docker pull "${IMAGE_TAG}"
-    - docker save "${IMAGE_TAG}" | gzip > "${TAR_NAME}"
-    - ls -lh "${TAR_NAME}"
+    - docker pull "${OUTBOUND_IMAGE_TAG}"
+    - docker save "${OUTBOUND_IMAGE_TAG}" | gzip > "${OUTBOUND_ARCHIVE_NAME}"
+    - ls -lh "${OUTBOUND_ARCHIVE_NAME}"
   artifacts:
     paths:
-      - "${TAR_NAME}"
+      - "${OUTBOUND_ARCHIVE_NAME}"
     expire_in: 7 days
 
 upload-to-nvftp:
@@ -49,8 +46,6 @@ upload-to-nvftp:
   needs:
     - job: export-image
       artifacts: true
-  variables:
-    TAR_NAME: flask-app-$CI_COMMIT_SHORT_SHA.tar.gz
   before_script:
     - apk add --no-cache openssh-client
   script:

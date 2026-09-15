@@ -8,7 +8,7 @@ The root workflow accepts push, schedule, web, API, and trigger pipelines. Other
 
 | Job | Input | Output |
 | --- | --- | --- |
-| `build-image` | Repository `Dockerfile` and application files | Commit-tagged image in GitLab Container Registry |
+| `build-image` | Configured Dockerfile and build context | Configured image in GitLab Container Registry |
 | `export-image` | Registry image | Compressed image archive retained for seven days |
 | `upload-to-nvftp` | Exported archive | Archive in `NVFTP_UPLOAD_DIR` |
 
@@ -49,3 +49,4 @@ No-change runs skip validation, publication, and MR creation while succeeding ov
 | `scripts/run_tests.sh` | Target validation command |
 | `scripts/publish_sync_branch.sh` | Commit and guarded branch publication |
 | `scripts/create_or_update_mr.sh` | Idempotent MR API operation |
+| `examples/gitlab-to-nvftp-container/` | Demonstration workload; not framework code |

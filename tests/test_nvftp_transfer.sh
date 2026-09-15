@@ -32,7 +32,7 @@ HOME="$test_dir/home" \
 NVFTP_USER=test-user \
 NVFTP_PRIVATE_KEY="$test_dir/nvftp_key" \
 NVFTP_UPLOAD_DIR='/upload destination' \
-TAR_NAME=image.tar.gz \
+OUTBOUND_ARCHIVE_NAME=image.tar.gz \
 SFTP_CAPTURE="$test_dir/upload.batch" \
   "$REPO_DIR/scripts/nvftp_upload.sh"
 

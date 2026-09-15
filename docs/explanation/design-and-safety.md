@@ -4,6 +4,10 @@
 
 The synchronization direction is a runtime choice, not a source-code variant. Keeping both job graphs on the same maintained branch prevents the pipeline definitions and shared SSH behavior from drifting apart. Local CI includes keep each graph readable while the root file owns the public selector.
 
+## Why the example is isolated
+
+The Flask container proves that the outbound workflow can build, export, and transfer an image, but it is not part of the synchronization framework. Keeping it under `examples/` prevents consumers from mistaking sample application files for required repository-root files. Configurable build variables allow each NVIS OVA repository to use the same process with its own Dockerfile and context.
+
 ## Why the directory variables are separate
 
 An upload directory is a destination; a download directory is a source. A single `NVFTP_REMOTE_DIR` was ambiguous once both operations could run together. `NVFTP_UPLOAD_DIR` and `NVFTP_DOWNLOAD_DIR` express intent and prevent an accidental round trip.
