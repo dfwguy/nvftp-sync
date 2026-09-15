@@ -3,17 +3,17 @@ const API = '/api/v1';
 const demo = {
   overview: { commits: 1842, pipelines: 27, merge_requests: 8, forks: 14, artifacts: 386 },
   pipelines: [
-    {id:67914627,name:'nvftp-sync / main',ref:'main · 9f2c15a',stage:'security_scan',status:'success',progress:100,duration:'2m 14s',actor:'Michelle R.'},
-    {id:67914911,name:'rack-status-pythoncm',ref:'import/nscale-tx-16k',stage:'integration_test',status:'running',progress:67,duration:'4m 31s',actor:'Hemanth L.'},
-    {id:67914782,name:'validation-toolkit',ref:'feat/h100-health',stage:'artifact_publish',status:'success',progress:100,duration:'6m 08s',actor:'Bryan R.'},
+    {id:67914627,name:'nvftp-sync / main',ref:'main · 9f2c15a',stage:'security_scan',status:'success',progress:100,duration:'2m 14s',actor:'GitLab CI'},
+    {id:67914911,name:'rack-status-pythoncm',ref:'import/nscale-tx-16k',stage:'integration_test',status:'running',progress:67,duration:'4m 31s',actor:'NVIS operator'},
+    {id:67914782,name:'validation-toolkit',ref:'feat/h100-health',stage:'artifact_publish',status:'success',progress:100,duration:'6m 08s',actor:'GitLab CI'},
     {id:67914203,name:'nvis-deployment',ref:'hotfix/manifest-v2',stage:'policy_gate',status:'failed',progress:82,duration:'1m 42s',actor:'CI Service'}
   ],
   activity: [
-    {who:'HL',name:'Hemanth L.',action:'opened merge request',target:'rack-status-pythoncm !41',time:'2 min'},
-    {who:'MR',name:'Michelle R.',action:'published artifact',target:'nvftp-sync 2026.09.15',time:'14 min'},
-    {who:'BR',name:'Bryan R.',action:'approved import',target:'H100 validation bundle',time:'31 min'},
+    {who:'OP',name:'NVIS operator',action:'opened merge request',target:'rack-status-pythoncm !41',time:'2 min'},
+    {who:'CI',name:'GitLab CI',action:'published artifact',target:'nvftp-sync 2026.09.15',time:'14 min'},
+    {who:'RV',name:'Authorized reviewer',action:'approved import',target:'H100 validation bundle',time:'31 min'},
     {who:'CI',name:'Policy bot',action:'blocked pipeline',target:'manifest-v2 · missing attestation',time:'46 min'},
-    {who:'AR',name:'Anika R.',action:'forked repository',target:'nvis-deployment',time:'1 hr'}
+    {who:'OP',name:'NVIS operator',action:'forked repository',target:'nvis-deployment',time:'1 hr'}
   ],
   repos: [
     {name:'rack-status-pythoncm',description:'Rack status validation and reporting for PythonCM.',branch:'main',commits:312,forks:4,mrs:2,status:'healthy',lang:'Python'},
@@ -24,16 +24,16 @@ const demo = {
     {name:'cluster-log-replay',description:'Captured validation sessions and deterministic replay.',branch:'main',commits:619,forks:2,mrs:1,status:'healthy',lang:'Go'}
   ],
   approvals: [
-    {title:'Import NscaleTX-16K rack status bundle',detail:'211 files · 17,024 additions · secret scan passed',risk:'Medium',owner:'Hemanth L.',age:'12m'},
+    {title:'Import NscaleTX-16K rack status bundle',detail:'211 files · 17,024 additions · secret scan passed',risk:'Medium',owner:'NVIS operator',age:'12m'},
     {title:'Rotate GitLab group access token',detail:'Scopes: api, read_repository, write_repository · expires in 3d',risk:'High',owner:'Platform Security',age:'2h'}
   ],
   audit: [
-    ['2026-09-15 11:42:08','Hemanth L.','merge_request.create','rack-status-pythoncm !41','allowed'],
+    ['2026-09-15 11:42:08','NVIS operator','merge_request.create','rack-status-pythoncm !41','allowed'],
     ['2026-09-15 11:40:51','nvis-worker','artifact.verify','NscaleTX-16K.tar.gz','allowed'],
     ['2026-09-15 11:39:26','nvis-worker','nvftp.download','sha256:a1c7…93e2','allowed'],
     ['2026-09-15 11:38:13','Slack Bot','intake.request','nvidia-space/shared/NscaleTX-16K','allowed'],
     ['2026-09-15 10:54:03','Policy Bot','pipeline.publish','manifest-v2','denied'],
-    ['2026-09-15 10:27:44','Michelle R.','credential.read','nvftp/production','allowed']
+    ['2026-09-15 10:27:44','Security admin','credential.rotate','nvftp/production','allowed']
   ],
   services: [
     {name:'Control Plane API',key:'nvis-api.service',status:'healthy',value:'42 ms',label:'p95 latency',usage:22},
@@ -76,6 +76,7 @@ async function loadData(){
     const navCounts=document.querySelectorAll('.nav-count');
     if(navCounts[0])navCounts[0].textContent=String(live.overview.pipelines);
     if(navCounts[1])navCounts[1].textContent=String(live.approvals.length);
+    document.querySelector('.avatar').textContent=String(state.session.user).slice(0,2).toUpperCase();
     document.querySelector('.mini-health strong').textContent='Hub API operational';
     document.querySelector('.mini-health small').textContent=`${live.services.filter(item=>item.status==='healthy').length} of ${live.services.length} integrations healthy`;
     banner.className='data-banner live';
@@ -118,7 +119,7 @@ document.querySelector('#loginForm').addEventListener('submit',async event=>{
 function overview(){
   const k=state.data.overview;
   const live=state.mode==='live';
-  return head('Control plane','Good morning, Hemanth.','Here is what is moving through your delivery system.',`${btn('⇧ New intake','intake')} ${btn('⌁ Run pipeline','run','primary')}`)+
+  return head('Control plane','Welcome to NVIS-OVA.','Here is what is moving through your delivery system.',`${btn('⇧ New intake','intake')} ${btn('⌁ Run pipeline','run','primary')}`)+
   `<section class="kpi-grid" aria-label="Key metrics">
     ${[['Commits',k.commits,live?'Across managed repositories':'+124 this week'],['Active pipelines',k.pipelines,live?'Running or pending now':'3 running now'],['Merge requests',k.merge_requests,live?'Open in GitLab':'2 need review'],['Managed forks',k.forks,live?'Reported by GitLab':'All synchronized'],['Artifacts',k.artifacts,live?'Recorded intake jobs':'29.6 GB indexed']].map(([a,b,c],i)=>`<article class="card kpi"><div class="kpi-label">${a}</div><div class="kpi-value">${b}</div><div class="delta ${i===2?'warn':''}">${c}</div></article>`).join('')}
   </section>
@@ -145,7 +146,7 @@ function approvals(){return head('Policy gates','Approvals','Human decisions tha
 
 function audit(){return head('Governance','Audit log','Tamper-evident record of every human and agent action.',`${btn('Filters','filter')} ${btn('Export evidence','export','primary')}`)+`<article class="card panel table-wrap"><table class="data-table"><thead><tr><th>Timestamp</th><th>Principal</th><th>Action</th><th>Resource</th><th>Decision</th></tr></thead><tbody>${state.data.audit.map(r=>`<tr><td class="mono">${esc(r[0])}</td><td>${esc(r[1])}</td><td class="mono">${esc(r[2])}</td><td>${esc(r[3])}</td><td>${status(r[4]==='allowed'?'success':'failed')}</td></tr>`).join('')}</tbody></table></article>`}
 
-function access(){return head('Identity & access','RBAC','Least-privilege roles for people, bots, and automation.',btn('+ Add principal','add-principal','primary'))+`<article class="card panel table-wrap"><div class="panel-head"><h2>Permission matrix</h2><span class="sub">Inherited from nvis-ova group policy</span></div><div class="role-matrix"><div class="head">Capability</div><div class="head">Viewer</div><div class="head">Operator</div><div class="head">Maintainer</div><div class="head">Security admin</div>${[['View pipeline','✓','✓','✓','✓'],['Stage artifact','—','✓','✓','✓'],['Create fork / MR','—','✓','✓','✓'],['Approve release','—','—','✓','✓'],['Rotate credentials','—','—','—','✓'],['Change RBAC','—','—','—','✓']].flatMap(row=>row.map((v,i)=>`<div class="${i&&v==='✓'?'check':''}">${v}</div>`)).join('')}</div></article><article class="card panel" style="margin-top:14px"><div class="panel-head"><h2>Active principals</h2><span class="badge success">8 identities</span></div><div class="table-wrap"><table class="data-table"><tbody><tr><td><div class="person">HL</div></td><td><strong>Hemanth L.</strong><br><span class="sub">hlakshminara@nvidia.com</span></td><td>Security admin</td><td>${status('success')}</td><td>Now</td></tr><tr><td><div class="person">SB</div></td><td><strong>NVIS Slack Bot</strong><br><span class="sub">service principal</span></td><td>Operator</td><td>${status('success')}</td><td>3s ago</td></tr></tbody></table></div></article>`}
+function access(){const user=state.session?.user||'Signed-in user';const role=state.session?.role||'viewer';const initials=user.slice(0,2).toUpperCase();return head('Identity & access','RBAC','Least-privilege roles for people, bots, and automation.')+`<article class="card panel table-wrap"><div class="panel-head"><h2>Permission matrix</h2><span class="sub">Enforced by the local control plane</span></div><div class="role-matrix"><div class="head">Capability</div><div class="head">Viewer</div><div class="head">Operator</div><div class="head">Approver</div><div class="head">Admin</div>${[['View pipeline','✓','✓','✓','✓'],['Stage artifact','—','✓','✓','✓'],['Create feature branch / MR','—','✓','✓','✓'],['Approve release','—','—','✓','✓'],['Rotate credentials','—','—','—','✓'],['Change RBAC','—','—','—','✓']].flatMap(row=>row.map((v,i)=>`<div class="${i&&v==='✓'?'check':''}">${v}</div>`)).join('')}</div></article><article class="card panel" style="margin-top:14px"><div class="panel-head"><h2>Current session</h2><span class="badge success">authenticated</span></div><div class="table-wrap"><table class="data-table"><tbody><tr><td><div class="person">${esc(initials)}</div></td><td><strong>${esc(user)}</strong><br><span class="sub">local portal identity</span></td><td>${esc(role)}</td><td>${status('success')}</td><td>Now</td></tr><tr><td><div class="person">SB</div></td><td><strong>NVIS Slack Bot</strong><br><span class="sub">service principal</span></td><td>Operator</td><td>${status(state.data.health?.integrations?.slack?.status==='configured'?'success':'warning')}</td><td>${esc(state.data.health?.integrations?.slack?.status||'not configured')}</td></tr></tbody></table></div></article>`}
 
 const integrationData=[['GL','GitLab Master','gitlab-master.nvidia.com','Live · read-only status API','gitlab'],['NF','NVFTP','transfer.nvftp.nvidia.com · SFTP','Dedicated key · expires Mar 13, 2027','nvftp'],['#','Slack Agent','Socket Mode','Awaiting workspace credentials','slack'],['VA','Local credential store','Mode-0600 files','Write-only API · 3 managed credentials','vault']];
 function integrations(){return head('Connections','Integrations','Manage connectivity and rotate credentials without exposing secret values.',btn('Test all connections','test-all','primary'))+`<section class="integration-grid">${integrationData.map(i=>`<article class="card integration"><div class="integration-head"><div class="integration-logo">${i[0]}</div><div><h3>${i[1]}</h3><p>${i[2]}</p></div><span style="margin-left:auto">${status(i[4]==='slack'?'warning':'success')}</span></div><div class="status-line"><span>${i[3]}</span><span>Live health view available</span></div><div class="integration-actions">${btn('Test',`test-${i[4]}`)} ${btn('Rotate credential',`rotate-${i[4]}`)}</div></article>`).join('')}</section><article class="card panel" style="margin-top:14px"><div class="panel-head"><h2>Secret handling</h2><span class="badge success">OS protected</span></div><p class="sub">Credentials are write-only in the portal. Existing values never return to the browser. Rotation atomically replaces a local mode-0600 file and appends a hash-chained audit event. Production deployment should place this directory on encrypted storage.</p></article>`}
