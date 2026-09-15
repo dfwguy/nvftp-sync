@@ -1,14 +1,18 @@
 display_information:
-  name: nvis-ova-importer
-  description: Human-gated NVFTP to NVIS-OVA GitLab importer
+  name: NVIS OVA CI/CD Hub
+  description: Human-gated NVFTP and GitLab staging control plane
   background_color: "#76b900"
 features:
   bot_user:
-    display_name: nvis-ova-importer
+    display_name: NVIS OVA Hub
     always_online: true
   slash_commands:
+    - command: /nvis
+      description: Control and observe the NVIS OVA staging hub
+      usage_hint: help | import ... | branch ... | status ... | cancel ... | replay ...
+      should_escape: false
     - command: /nvis-import
-      description: Plan a verified NVFTP import into NVIS-OVA GitLab
+      description: Legacy shortcut for a verified NVFTP import
       usage_hint: nvftp=/allowed/path artifact=basename target=nvis-ova/project
       should_escape: false
 oauth_config:
@@ -16,10 +20,15 @@ oauth_config:
     bot:
       - commands
       - chat:write
+      - app_mentions:read
+      - im:history
 settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
   interactivity:
     is_enabled: true
   socket_mode_enabled: true
   org_deploy_enabled: false
   token_rotation_enabled: false
-

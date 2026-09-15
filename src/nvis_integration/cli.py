@@ -18,6 +18,7 @@ from .slack_service import serve
 from .state import JobStore
 
 DEFAULT_CONFIG = pathlib.Path("/etc/nvis-integration/config.toml")
+LOG = logging.getLogger(__name__)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -33,8 +34,21 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--artifact", required=True)
     plan.add_argument("--target", default="auto")
     subcommands.add_parser("serve", help="run Slack Socket Mode service")
+    bootstrap = subcommands.add_parser(
+        "portal-bootstrap", help="create local portal login/session credentials"
+    )
+    bootstrap.add_argument("--runtime-root", type=pathlib.Path, required=True)
+    hub = subcommands.add_parser("hub-serve", help="run the localhost NVIS-OVA portal")
+    hub.add_argument("--web-root", type=pathlib.Path, required=True)
+    hub.add_argument("--auth-records", type=pathlib.Path, required=True)
+    hub.add_argument("--session-secret", type=pathlib.Path, required=True)
+    hub.add_argument("--credential-root", type=pathlib.Path, required=True)
+    hub.add_argument("--port", type=int, default=8787)
     audit = subcommands.add_parser("audit-verify", help="verify the hash-chained audit ledger")
     audit.add_argument("--json", action="store_true")
+    subcommands.add_parser(
+        "portal-audit-verify", help="verify the portal-level hash-chained audit ledger"
+    )
     job = subcommands.add_parser("job-show", help="show one job and its audit events")
     job.add_argument("job_id")
     package = subcommands.add_parser("package", help="create a verified NVFTP envelope")
@@ -109,6 +123,16 @@ def main(argv: list[str] | None = None) -> None:
                 )
             )
             return
+        if args.command == "portal-bootstrap":
+            from .portal_runtime import bootstrap_portal
+
+            paths = bootstrap_portal(args.runtime_root.resolve())
+            print(
+                json.dumps(
+                    {name: str(path) for name, path in paths.items()}, indent=2, sort_keys=True
+                )
+            )
+            return
         config = load_config(args.config)
         if args.command == "doctor":
             raise SystemExit(_doctor(config, args.network))
@@ -127,6 +151,21 @@ def main(argv: list[str] | None = None) -> None:
             return
         if args.command == "serve":
             serve(config)
+            return
+        if args.command == "hub-serve":
+            from .hub_api import serve_localhost
+            from .portal_runtime import build_portal
+
+            application = build_portal(
+                config,
+                web_root=args.web_root,
+                auth_records_file=args.auth_records,
+                session_secret_file=args.session_secret,
+                credential_root=args.credential_root,
+            )
+            server = serve_localhost(application, port=args.port)
+            LOG.info("NVIS-OVA Hub listening on http://127.0.0.1:%s", args.port)
+            server.serve_forever()
             return
         if args.command == "audit-verify":
             store = JobStore(config.paths.state / "jobs.sqlite3")
@@ -149,6 +188,14 @@ def main(argv: list[str] | None = None) -> None:
                 )
             )
             return
+        if args.command == "portal-audit-verify":
+            from .portal_audit import PortalAuditLog
+
+            valid, position = PortalAuditLog(
+                config.paths.state / "portal-audit.jsonl"
+            ).verify()
+            print(json.dumps({"valid": valid, "events_checked": position}, sort_keys=True))
+            raise SystemExit(0 if valid else 1)
     except KeyboardInterrupt:
         raise SystemExit(130) from None
     except Exception as exc:

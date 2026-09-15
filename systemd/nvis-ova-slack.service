@@ -1,0 +1,39 @@
+[Unit]
+Description=NVIS-OVA Slack command agent
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=%h/cicd-hub/runtime/config.toml
+ConditionPathExists=%h/cicd-hub/runtime/secrets/slack_bot_token
+ConditionPathExists=%h/cicd-hub/runtime/secrets/slack_app_token
+
+[Service]
+Type=simple
+WorkingDirectory=%h/cicd-hub/worktrees/nvftp-sync-control-plane
+ExecStart=%h/cicd-hub/runtime/venv/bin/nvis-integration --config %h/cicd-hub/runtime/config.toml serve
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+ReadWritePaths=%h/cicd-hub/runtime
+TasksMax=128
+LimitNOFILE=4096
+MemoryMax=2G
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="NVIS-OVA CI/CD Hub control plane">
+  <meta name="theme-color" content="#0b0c0d">
+  <title>NVIS-OVA CI/CD Hub</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to content</a>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>NVIS-OVA</strong><small>CI/CD HUB</small></span>
+      </div>
+      <nav id="nav">
+        <p class="nav-label">Workspace</p>
+        <a href="#overview" data-route="overview" class="active"><span class="icon">⌂</span><span>Overview</span></a>
+        <a href="#pipelines" data-route="pipelines"><span class="icon">⌁</span><span>Pipelines</span><b class="nav-count">3</b></a>
+        <a href="#intake" data-route="intake"><span class="icon">⇧</span><span>Artifact intake</span></a>
+        <a href="#repositories" data-route="repositories"><span class="icon">⑂</span><span>Repositories</span></a>
+        <a href="#lineage" data-route="lineage"><span class="icon">⌘</span><span>Lineage</span></a>
+        <p class="nav-label">Governance</p>
+        <a href="#approvals" data-route="approvals"><span class="icon">✓</span><span>Approvals</span><b class="nav-count warning">2</b></a>
+        <a href="#audit" data-route="audit"><span class="icon">≡</span><span>Audit log</span></a>
+        <a href="#access" data-route="access"><span class="icon">♙</span><span>Access &amp; RBAC</span></a>
+        <p class="nav-label">System</p>
+        <a href="#integrations" data-route="integrations"><span class="icon">⛓</span><span>Integrations</span></a>
+        <a href="#health" data-route="health"><span class="icon">♡</span><span>Node health</span></a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="mini-health"><span class="status-dot healthy"></span><span><strong>Hub operational</strong><small>4 of 4 services online</small></span></div>
+        <span class="version">STAGING · v0.1.0</span>
+      </div>
+    </aside>
+    <div class="app-body">
+      <header class="topbar">
+        <button class="icon-button mobile-only" id="menuToggle" aria-label="Open navigation" aria-expanded="false">☰</button>
+        <div class="crumb"><span>NVIS-OVA</span><b>/</b><strong id="pageCrumb">Overview</strong></div>
+        <div class="top-actions">
+          <div class="live-pill"><i></i><span>LIVE</span></div>
+          <button class="command-trigger" id="commandTrigger" title="Open command center"><span>⌕</span><span>Search or run a command</span><kbd>⌘ K</kbd></button>
+          <button class="icon-button" id="themeToggle" aria-label="Toggle color theme">◐</button>
+          <button class="icon-button notification" aria-label="Notifications">♢<i></i></button>
+          <button class="avatar" aria-label="Open user menu">HL</button>
+        </div>
+      </header>
+      <div class="data-banner" id="dataBanner" role="status">
+        <span>DEMO DATA</span> Live API is unavailable. Actions are simulated and no credentials are stored.
+        <button id="retryApi">Retry connection</button>
+      </div>
+      <main id="workspace" tabindex="-1" aria-live="polite">
+        <div class="page-loading" aria-label="Loading dashboard"><span class="loader"></span><strong>Connecting to control plane…</strong></div>
+      </main>
+    </div>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  <dialog id="commandDialog" class="command-dialog">
+    <form method="dialog" class="command-head"><span>⌕</span><input id="commandInput" autocomplete="off" placeholder="Search projects, pipelines, people, or type a command…" aria-label="Command search"><button aria-label="Close">ESC</button></form>
+    <div class="command-results" id="commandResults"></div>
+    <footer><span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span><kbd>↵</kbd> Select</span><span>Try “import from NVFTP”</span></footer>
+  </dialog>
+  <dialog id="loginDialog" class="modal login-dialog">
+    <form id="loginForm" class="modal-body">
+      <p class="eyebrow">Protected control plane</p>
+      <h2>Sign in to NVIS-OVA</h2>
+      <p>Use the staging-hub account provisioned on this VM. Credentials remain local.</p>
+      <div class="field"><label for="loginUser">Username</label><input id="loginUser" autocomplete="username" required value="admin"></div>
+      <div class="field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
+      <p class="login-error" id="loginError" role="alert"></p>
+      <div class="modal-actions"><button class="btn primary" type="submit">Sign in securely</button></div>
+    </form>
+  </dialog>
+  <dialog id="modal" class="modal"><div id="modalContent"></div></dialog>
+  <div class="toast-region" id="toasts" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -28,6 +28,8 @@ class NvftpClient:
     def _run(self, commands: list[str], timeout: int = 120) -> str:
         command = [
             "sftp",
+            "-F",
+            "/dev/null",
             "-b",
             "-",
             "-i",

@@ -44,7 +44,9 @@ class GitlabClient:
             detail = raw.decode(errors="replace")[-1000:]
             if exc.code == 404:
                 return 404, {}
-            raise RuntimeError(f"GitLab API {method} {endpoint} failed ({exc.code}): {detail}") from exc
+            raise RuntimeError(
+                f"GitLab API {method} {endpoint} failed ({exc.code}): {detail}"
+            ) from exc
 
     def get_project(self, target: str) -> dict[str, object] | None:
         status, response = self._api("GET", f"projects/{urllib.parse.quote(target, safe='')}")
@@ -68,12 +70,27 @@ class GitlabClient:
         )
         return dict(response)  # type: ignore[arg-type]
 
+    def create_branch(self, *, target: str, branch: str, ref: str) -> str:
+        """Create a non-protected feature branch without force or destructive options."""
+        project = self.get_project(target)
+        if project is None:
+            raise ValueError(f"GitLab project does not exist: {target}")
+        default_branch = str(project.get("default_branch") or "main")
+        protected = {default_branch, "main", "master", "develop", "development", "release"}
+        if branch in protected or branch.startswith(("release/", "hotfix/", "nvftp/")):
+            raise ValueError("refusing to create a protected or integration-reserved branch")
+        project_id = int(project["id"])
+        self._api(
+            "POST",
+            f"projects/{project_id}/repository/branches",
+            {"branch": branch, "ref": ref},
+        )
+        return f"{project['web_url']}/-/tree/{urllib.parse.quote(branch, safe='/')}"
+
     def _git_env(self) -> dict[str, str]:
         import os
 
-        encoded = base64.b64encode(
-            f"{self.config.bot_username}:{self.token}".encode()
-        ).decode()
+        encoded = base64.b64encode(f"{self.config.bot_username}:{self.token}".encode()).decode()
         env = dict(os.environ)
         env.update(
             {
@@ -131,9 +148,7 @@ class GitlabClient:
         self._git(["clone", "--no-checkout", http_url, str(checkout)])
         default_branch = str(project.get("default_branch") or "main")
         self._git(["fetch", str(bundle), incoming_oid], cwd=checkout)
-        current_tip = self._git(
-            ["rev-parse", f"origin/{default_branch}"], cwd=checkout
-        ).strip()
+        current_tip = self._git(["rev-parse", f"origin/{default_branch}"], cwd=checkout).strip()
         if base_commit and source_kind == "change-set" and base_commit != current_tip:
             raise RuntimeError(
                 "change-set base_commit is stale; regenerate it from the current default branch"
