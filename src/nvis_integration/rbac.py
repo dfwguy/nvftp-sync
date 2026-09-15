@@ -26,10 +26,17 @@ class AuthorizationError(PermissionError):
 class Principal:
     username: str
     role: str
+    display_name: str | None = None
 
     def __post_init__(self) -> None:
         if self.role not in ROLE_LEVEL:
             raise ValueError(f"unknown role: {self.role}")
+        if self.display_name is not None and (
+            not self.display_name.strip()
+            or len(self.display_name) > 160
+            or any(ord(character) < 32 for character in self.display_name)
+        ):
+            raise ValueError("invalid display name")
 
     def require(self, minimum_role: str) -> None:
         if minimum_role not in ROLE_LEVEL:
@@ -41,7 +48,7 @@ class Principal:
 class PasswordAuthenticator:
     """Authenticate against scrypt password records held outside application code."""
 
-    def __init__(self, records: Mapping[str, tuple[str, str]]) -> None:
+    def __init__(self, records: Mapping[str, tuple[str, str] | tuple[str, str, str]]) -> None:
         self._records = dict(records)
 
     @staticmethod
@@ -53,7 +60,10 @@ class PasswordAuthenticator:
     def authenticate(self, username: str, password: str) -> Principal:
         record = self._records.get(username)
         # Do equivalent work for missing users to reduce username timing leakage.
-        role, encoded = record or ("viewer", self.password_record("invalid-password"))
+        fallback = ("viewer", self.password_record("invalid-password"), "Unknown user")
+        supplied = record or fallback
+        role, encoded = supplied[:2]
+        display_name = supplied[2] if len(supplied) == 3 else None
         try:
             algorithm, value = encoded.split("$", 1)
             raw = base64.urlsafe_b64decode(value.encode())
@@ -63,7 +73,7 @@ class PasswordAuthenticator:
             raise AuthenticationError("invalid credentials") from exc
         if algorithm != "scrypt" or record is None or not hmac.compare_digest(actual, expected):
             raise AuthenticationError("invalid credentials")
-        return Principal(username, role)
+        return Principal(username, role, display_name)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -89,6 +99,7 @@ class SessionCodec:
             {
                 "sub": principal.username,
                 "role": principal.role,
+                "name": principal.display_name,
                 "csrf": session.csrf_token,
                 "exp": session.expires_at,
             },
@@ -106,7 +117,12 @@ class SessionCodec:
             if not hmac.compare_digest(supplied_signature, expected_signature):
                 raise AuthenticationError("invalid session")
             payload = json.loads(_unb64(encoded))
-            principal = Principal(str(payload["sub"]), str(payload["role"]))
+            display_name = payload.get("name")
+            principal = Principal(
+                str(payload["sub"]),
+                str(payload["role"]),
+                str(display_name) if display_name is not None else None,
+            )
             session = Session(principal, str(payload["csrf"]), int(payload["exp"]))
         except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
             raise AuthenticationError("invalid session") from exc

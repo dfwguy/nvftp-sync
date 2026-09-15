@@ -40,12 +40,20 @@ def test_signed_session_expiry_and_tamper() -> None:
 
 def test_password_authentication() -> None:
     record = PasswordAuthenticator.password_record("correct horse")
-    auth = PasswordAuthenticator({"alice": ("approver", record)})
-    assert auth.authenticate("alice", "correct horse") == Principal("alice", "approver")
+    auth = PasswordAuthenticator({"alice": ("approver", record, "Alice Example")})
+    assert auth.authenticate("alice", "correct horse") == Principal(
+        "alice", "approver", "Alice Example"
+    )
     with pytest.raises(AuthenticationError):
         auth.authenticate("alice", "wrong")
     with pytest.raises(AuthenticationError):
         auth.authenticate("missing", "correct horse")
+
+
+def test_signed_session_preserves_display_name() -> None:
+    codec = SessionCodec(b"s" * 32)
+    token, _ = codec.issue(Principal("alice@example.com", "operator", "Alice Example"))
+    assert codec.verify(token).principal.display_name == "Alice Example"
 
 
 def test_credential_rotation_is_atomic_private_and_never_listed(tmp_path: pathlib.Path) -> None:

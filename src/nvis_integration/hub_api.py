@@ -340,6 +340,7 @@ class HubApplication:
     def _session_json(session: Session) -> JsonObject:
         return {
             "user": session.principal.username,
+            "display_name": session.principal.display_name,
             "role": session.principal.role,
             "csrf_token": session.csrf_token,
             "expires_at": session.expires_at,

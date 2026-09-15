@@ -58,11 +58,18 @@ def _authenticator(path: pathlib.Path) -> PasswordAuthenticator:
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or not raw:
         raise ValueError("portal auth records must be a non-empty JSON object")
-    records: dict[str, tuple[str, str]] = {}
+    records: dict[str, tuple[str, str] | tuple[str, str, str]] = {}
     for username, item in raw.items():
         if not isinstance(item, dict):
             raise TypeError("invalid portal auth record")
-        records[str(username)] = (str(item["role"]), str(item["password_record"]))
+        role = str(item["role"])
+        password_record = str(item["password_record"])
+        display_name = item.get("display_name")
+        records[str(username)] = (
+            (role, password_record, str(display_name))
+            if display_name is not None
+            else (role, password_record)
+        )
     return PasswordAuthenticator(records)
 
 

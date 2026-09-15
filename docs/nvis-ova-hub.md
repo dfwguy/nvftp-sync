@@ -97,9 +97,10 @@ trusted network. For encrypted transport without a reverse proxy, tunnel it:
 ssh -L 8787:127.0.0.1:8787 hlakshminara@<staging-vm>
 ```
 
-Open `http://127.0.0.1:8787`. The bootstrap password is readable only by the VM
-account at `~/cicd-hub/runtime/secrets/bootstrap-admin-password`. Replace the
-bootstrap record after onboarding additional identities.
+Open `http://127.0.0.1:8787`. The deployed roster uses NVIDIA email addresses as
+login identities. Its initial password is readable only by the VM account at
+`~/cicd-hub/runtime/secrets/initial-portal-password`. Replace the shared initial
+password with unique credentials before relying on person-level audit attribution.
 
 The portal exposes live counts and status for repositories, commits, forks, open
 merge requests, recent pipelines, NVFTP, GitLab, Slack readiness, the audit store,
