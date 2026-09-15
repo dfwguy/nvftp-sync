@@ -7,6 +7,8 @@ default:
     - type/docker
     - os/linux
   before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends git openssh-client
     - python -m pip install --disable-pip-version-check '.[dev]'
 
 ruff:
