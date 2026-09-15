@@ -8,6 +8,22 @@ This repository is the foundation for consistent GitLab and NVFTP transfer proce
 
 The default is `gitlab-to-nvftp`, which preserves the behavior of ordinary push pipelines. Choose a different value for `SYNC_DIRECTION` when starting a manual, scheduled, API, or trigger pipeline.
 
+> [!WARNING]
+> **Every Git push currently starts the GitLab → NVFTP workflow.** Because `gitlab-to-nvftp` is the default direction, pushing any branch creates a pipeline that builds, exports, and uploads a container archive when the required credentials are available. This includes documentation-only and feature-branch pushes. Confirm `NVFTP_UPLOAD_DIR` and the outbound build variables before pushing changes to a repository that uses this foundation.
+>
+> NVFTP → GitLab does **not** currently run on every push. It runs only when `SYNC_DIRECTION=nvftp-to-gitlab` or `both` is supplied, commonly by a manual pipeline, API/trigger request, or pipeline schedule. Creating such a schedule makes inbound synchronization automatic at that schedule's frequency and should be communicated to repository users just as prominently.
+
+## Trigger behavior
+
+| Trigger | Behavior without an override |
+| --- | --- |
+| Push to any branch | Runs GitLab → NVFTP |
+| Manual web pipeline | Presents `SYNC_DIRECTION`; defaults to GitLab → NVFTP |
+| API or trigger pipeline | Defaults to GitLab → NVFTP unless the request supplies `SYNC_DIRECTION` |
+| Pipeline schedule | Defaults to GitLab → NVFTP unless the schedule explicitly sets `SYNC_DIRECTION` |
+
+To run an inbound schedule, explicitly set `SYNC_DIRECTION=nvftp-to-gitlab`. To prevent push-triggered uploads, the root `workflow: rules` must be changed; merely omitting `NVFTP_UPLOAD_DIR` causes a failed outbound job rather than disabling it.
+
 ## Documentation
 
 The documentation follows the [Diátaxis](https://diataxis.fr/) organization:
