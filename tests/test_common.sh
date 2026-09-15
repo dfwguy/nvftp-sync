@@ -28,10 +28,17 @@ assert_equal /legacy "$(nvftp_upload_dir 2>/dev/null)"
 
 validate_nvftp_remote_dir /safe/path
 validate_nvftp_remote_dir 'safe path'
+validate_remote_file_name image.tar.gz
 
 for unsafe_path in '' / . .. ../escape path/../escape 'quote"path' 'back\slash'; do
   if (validate_nvftp_remote_dir "$unsafe_path") >/dev/null 2>&1; then
     fail "accepted unsafe NVFTP directory: $unsafe_path"
+  fi
+done
+
+for unsafe_file in '' . .. path/file 'quote"file' 'back\slash'; do
+  if (validate_remote_file_name "$unsafe_file") >/dev/null 2>&1; then
+    fail "accepted unsafe remote file name: $unsafe_file"
   fi
 done
 

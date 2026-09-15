@@ -33,7 +33,7 @@ The private key must be a GitLab **File** variable. The workflow expects its val
 3. Leave `SYNC_DIRECTION` set to `gitlab-to-nvftp`.
 4. Select **Run pipeline**.
 
-The pipeline builds the workload in `examples/gitlab-to-nvftp-container`, pushes the image, exports it as `container-image-<commit>.tar.gz`, and uploads that file to `NVFTP_UPLOAD_DIR`.
+The pipeline builds the workload in `examples/gitlab-to-nvftp-container`, pushes the image, exports it as `container-image.tar.gz`, and uploads that file plus `container-image.tar.gz.sha256` to `NVFTP_UPLOAD_DIR`. A rerun skips the archive upload when the remote checksum already matches.
 
 ## Confirm the result
 

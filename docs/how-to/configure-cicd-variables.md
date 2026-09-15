@@ -99,9 +99,11 @@ The foundation repository defaults to its isolated example. In a normal NVIS OVA
 | --- | --- | --- |
 | `OUTBOUND_BUILD_CONTEXT` | `.` | Sends the repository root as Docker build context |
 | `OUTBOUND_DOCKERFILE` | `Dockerfile` | Selects the repository's production Dockerfile |
-| `OUTBOUND_ARCHIVE_NAME` | `<repository-name>-$CI_COMMIT_SHORT_SHA.tar.gz` | Gives the exported image an identifiable filename |
+| `OUTBOUND_ARCHIVE_NAME` | `<repository-name>.tar.gz` | Gives the exported image a stable, identifiable filename that can be checksum-compared |
 
 Usually leave `OUTBOUND_IMAGE_TAG` unset so the pipeline uses `$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA`. Override it only when the repository has an established registry-tag convention.
+
+The stable archive name is intentional: the pipeline uploads a matching `.sha256` sidecar and replaces the archive only when its checksum changes. Adding `$CI_COMMIT_SHORT_SHA` to the filename creates a new remote path for every commit and prevents cross-commit deduplication.
 
 Do not store these non-secret defaults as protected unless there is an organizational reason to restrict them.
 
@@ -116,6 +118,8 @@ Create a normal variable containing the remote source folder, for example:
 ```
 
 The pipeline recursively downloads this folder and mirrors it into `TARGET_SYNC_PATH`. Files removed from NVFTP are proposed as deletions in the target merge request.
+
+To avoid downloading an unchanged folder, optionally create `NVFTP_DOWNLOAD_MANIFEST` with the full remote path to a producer-maintained manifest. Keep the manifest outside `NVFTP_DOWNLOAD_DIR` unless it should also be mirrored into the target repository. Follow [Avoid redundant transfers](avoid-redundant-transfers.md) before enabling it; a stale manifest can conceal changed files.
 
 ### Identify the target project
 

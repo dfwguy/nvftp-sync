@@ -13,6 +13,8 @@ The default is `gitlab-to-nvftp`, which preserves the behavior of ordinary push 
 >
 > NVFTP → GitLab does **not** currently run on every push. It runs only when `SYNC_DIRECTION=nvftp-to-gitlab` or `both` is supplied, commonly by a manual pipeline, API/trigger request, or pipeline schedule. Creating such a schedule makes inbound synchronization automatic at that schedule's frequency and should be communicated to repository users just as prominently.
 
+The outbound pipeline still builds and exports on every push, but it compares the archive SHA-256 with NVFTP and skips the upload when the remote checksum matches. Inbound pipelines can skip the recursive download when a producer-maintained manifest is configured. See [Avoid redundant transfers](docs/how-to/avoid-redundant-transfers.md) for the guarantees and setup requirements.
+
 ## Trigger behavior
 
 | Trigger | Behavior without an override |
@@ -37,6 +39,7 @@ The documentation follows the [Diátaxis](https://diataxis.fr/) organization:
 
 - [Configure GitLab CI/CD variables](docs/how-to/configure-cicd-variables.md)
 - [Adopt the process in an NVIS OVA repository](docs/how-to/adopt-in-an-nvis-ova-repository.md)
+- [Avoid redundant transfers](docs/how-to/avoid-redundant-transfers.md)
 - [Run one or both synchronization directions](docs/how-to/run-sync-directions.md)
 - [Schedule an inbound synchronization](docs/how-to/schedule-inbound-sync.md)
 - [Migrate from `NVFTP_REMOTE_DIR`](docs/how-to/migrate-directory-variable.md)

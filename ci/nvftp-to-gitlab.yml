@@ -7,14 +7,22 @@ pull-from-nvftp:
   stage: pull_from_nvftp
   image: alpine:3.20
   needs: []
+  cache:
+    key: "$CI_PROJECT_ID-nvftp-download-state"
+    paths:
+      - .nvftp-cache/
+    policy: pull
   before_script:
     - apk add --no-cache openssh-client
   script:
     - ./scripts/nvftp_pull.sh
   artifacts:
     when: always
+    reports:
+      dotenv: reports/pull.env
     paths:
       - tmp/nvftp-source/
+      - reports/
     expire_in: 7 days
 
 diff-against-target-main:
@@ -27,6 +35,22 @@ diff-against-target-main:
   before_script:
     - apk add --no-cache git rsync
   script:
+    - |
+      if [ "$REMOTE_DOWNLOAD_SKIPPED" = "true" ]; then
+        mkdir -p reports
+        : >reports/changed_files.txt
+        : >reports/diff_summary.txt
+        : >reports/git_status.txt
+        {
+          printf '%s\n' 'HAS_CHANGES=false'
+          printf '%s\n' 'FILES_ADDED=0'
+          printf '%s\n' 'FILES_MODIFIED=0'
+          printf '%s\n' 'FILES_DELETED=0'
+          printf 'DOWNLOAD_STATE_FILE=%s\n' "$DOWNLOAD_STATE_FILE"
+        } >reports/sync.env
+        printf '%s\n' 'NVFTP manifest is unchanged; target comparison skipped.'
+        exit 0
+      fi
     - ./scripts/clone_target.sh
     - ./scripts/prepare_candidate.sh
     - ./scripts/detect_changes.sh
@@ -106,6 +130,11 @@ create-or-update-mr:
   extends: .nvftp-to-gitlab
   stage: create_or_update_mr
   image: alpine:3.20
+  cache:
+    key: "$CI_PROJECT_ID-nvftp-download-state"
+    paths:
+      - .nvftp-cache/
+    policy: pull-push
   needs:
     - job: publish-sync-branch
       artifacts: true
@@ -115,9 +144,11 @@ create-or-update-mr:
     - |
       if [ "$HAS_CHANGES" != "true" ]; then
         printf '%s\n' 'No NVFTP changes detected; merge request creation skipped.'
+        ./scripts/checkpoint_download_manifest.sh
         exit 0
       fi
     - ./scripts/create_or_update_mr.sh
+    - ./scripts/checkpoint_download_manifest.sh
   artifacts:
     when: always
     paths:

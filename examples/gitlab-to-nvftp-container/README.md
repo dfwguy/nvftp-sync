@@ -9,7 +9,7 @@ NVIS OVA repositories should override:
 ```text
 OUTBOUND_BUILD_CONTEXT=.
 OUTBOUND_DOCKERFILE=Dockerfile
-OUTBOUND_ARCHIVE_NAME=<repository-name>-$CI_COMMIT_SHORT_SHA.tar.gz
+OUTBOUND_ARCHIVE_NAME=<repository-name>.tar.gz
 ```
 
 The example starts a small Flask service on port 8080. After loading the exported image, verify it with:

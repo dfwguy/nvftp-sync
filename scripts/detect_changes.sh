@@ -38,6 +38,9 @@ slug=$(source_slug)
   printf 'FILES_DELETED=%s\n' "$deleted"
   printf 'SOURCE_SLUG=%s\n' "$slug"
   printf 'TARGET_BASE_SHA=%s\n' "$base_sha"
+  if [ -n "${DOWNLOAD_STATE_FILE:-}" ]; then
+    printf 'DOWNLOAD_STATE_FILE=%s\n' "$DOWNLOAD_STATE_FILE"
+  fi
 } >"$reports_dir/sync.env"
 
 printf 'Changes: %s (added=%s modified=%s deleted=%s)\n' "$has_changes" "$added" "$modified" "$deleted"

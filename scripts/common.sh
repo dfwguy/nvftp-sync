@@ -34,15 +34,27 @@ nvftp_upload_dir() {
 }
 
 validate_nvftp_remote_dir() {
-  remote_dir=$1
-  case "$remote_dir" in
+  nvftp_remote_dir_to_validate=$1
+  case "$nvftp_remote_dir_to_validate" in
     ""|/|.|..|../*|*/../*|*/..|*\"*|*\\*)
-      die "unsafe NVFTP directory: $remote_dir"
+      die "unsafe NVFTP directory: $nvftp_remote_dir_to_validate"
       ;;
   esac
-  single_line_remote_dir=$(printf '%s' "$remote_dir" | tr -d '\r\n')
-  [ "$single_line_remote_dir" = "$remote_dir" ] \
+  single_line_remote_dir=$(printf '%s' "$nvftp_remote_dir_to_validate" | tr -d '\r\n')
+  [ "$single_line_remote_dir" = "$nvftp_remote_dir_to_validate" ] \
     || die "NVFTP directory must be a single line"
+}
+
+validate_remote_file_name() {
+  remote_file_name_to_validate=$1
+  case "$remote_file_name_to_validate" in
+    ""|.|..|*/*|*\"*|*\\*)
+      die "unsafe remote file name: $remote_file_name_to_validate"
+      ;;
+  esac
+  single_line_file_name=$(printf '%s' "$remote_file_name_to_validate" | tr -d '\r\n')
+  [ "$single_line_file_name" = "$remote_file_name_to_validate" ] \
+    || die "remote file name must be a single line"
 }
 
 prepare_nvftp_ssh() {

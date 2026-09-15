@@ -16,6 +16,12 @@ An upload directory is a destination; a download directory is a source. A single
 
 The two workflows are independent DAGs. The inbound pull can begin without waiting for the outbound upload, so it observes whatever was already present in its download directory when it connected. This makes `both` useful for operating two separate exchanges in one pipeline without implying data flow between them.
 
+## Why transfer avoidance differs by direction
+
+For outbound transfers, the pipeline owns the archive and can calculate its SHA-256 before connecting. It stores that value in a small sidecar on NVFTP and can safely skip an archive whose sidecar already matches.
+
+For inbound folders, SFTP cannot request a recursive server-side checksum. Skipping the download therefore requires a producer-maintained manifest that represents the complete folder. The manifest checkpoint advances only after validation and MR processing succeed, ensuring a failed pipeline retries the same delivery.
+
 ## Why inbound changes use a merge request
 
 NVFTP content is external input. The pipeline stages it against an exact target-base commit, runs the target's test command, and publishes only after validation. It then proposes the result rather than modifying the protected branch. This preserves human review, target-project approvals, and the normal audit trail.

@@ -27,7 +27,8 @@ variables:
   OUTBOUND_BUILD_CONTEXT: "examples/gitlab-to-nvftp-container"
   OUTBOUND_DOCKERFILE: "examples/gitlab-to-nvftp-container/Dockerfile"
   OUTBOUND_IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
-  OUTBOUND_ARCHIVE_NAME: "container-image-$CI_COMMIT_SHORT_SHA.tar.gz"
+  OUTBOUND_ARCHIVE_NAME: "container-image.tar.gz"
+  OUTBOUND_FORCE_UPLOAD: "false"
   SYNC_DIRECTION:
     value: "gitlab-to-nvftp"
     options:

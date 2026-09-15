@@ -21,7 +21,7 @@ Set project CI/CD variables appropriate to the repository layout. For a root Doc
 ```text
 OUTBOUND_BUILD_CONTEXT=.
 OUTBOUND_DOCKERFILE=Dockerfile
-OUTBOUND_ARCHIVE_NAME=<repository-name>-$CI_COMMIT_SHORT_SHA.tar.gz
+OUTBOUND_ARCHIVE_NAME=<repository-name>.tar.gz
 ```
 
 Leave `OUTBOUND_IMAGE_TAG` at its default unless images must be published under another registry tag.

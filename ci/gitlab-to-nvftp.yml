@@ -32,7 +32,8 @@ export-image:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   script:
     - docker pull "${OUTBOUND_IMAGE_TAG}"
-    - docker save "${OUTBOUND_IMAGE_TAG}" | gzip > "${OUTBOUND_ARCHIVE_NAME}"
+    - docker tag "${OUTBOUND_IMAGE_TAG}" nvftp-export:latest
+    - docker save nvftp-export:latest | gzip -n > "${OUTBOUND_ARCHIVE_NAME}"
     - ls -lh "${OUTBOUND_ARCHIVE_NAME}"
   artifacts:
     paths:

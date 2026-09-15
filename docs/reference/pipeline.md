@@ -9,14 +9,14 @@ The root workflow accepts push, schedule, web, API, and trigger pipelines. Other
 | Job | Input | Output |
 | --- | --- | --- |
 | `build-image` | Configured Dockerfile and build context | Configured image in GitLab Container Registry |
-| `export-image` | Registry image | Compressed image archive retained for seven days |
-| `upload-to-nvftp` | Exported archive | Archive in `NVFTP_UPLOAD_DIR` |
+| `export-image` | Registry image | Deterministic compressed image archive retained for seven days |
+| `upload-to-nvftp` | Exported archive | Archive and SHA-256 sidecar in `NVFTP_UPLOAD_DIR`, unless the remote checksum matches |
 
 ## NVFTP-to-GitLab jobs
 
 | Job | Purpose |
 | --- | --- |
-| `pull-from-nvftp` | Downloads `NVFTP_DOWNLOAD_DIR` into a temporary artifact |
+| `pull-from-nvftp` | Checks the optional manifest, then downloads `NVFTP_DOWNLOAD_DIR` when required |
 | `diff-against-target-main` | Overlays the snapshot with deletion awareness and records the diff |
 | `validate-candidate` | Reconstructs the pinned candidate and runs `TARGET_TEST_COMMAND` |
 | `publish-sync-branch` | Commits and pushes the validated candidate branch |
@@ -33,6 +33,8 @@ The inbound jobs retain reports for seven days:
 
 No-change runs skip validation, publication, and MR creation while succeeding overall. Validation failures retain diagnostic artifacts and prevent publication.
 
+The inbound manifest checkpoint uses a GitLab cache scoped to the project. It advances only in `create-or-update-mr`, after all required inbound work succeeds. A missing cache entry causes a full download, so cache eviction affects performance rather than correctness.
+
 ## Repository layout
 
 | Path | Purpose |
@@ -43,6 +45,7 @@ No-change runs skip validation, publication, and MR creation while succeeding ov
 | `scripts/common.sh` | Validation and shared SSH/configuration helpers |
 | `scripts/nvftp_upload.sh` | Non-interactive outbound SFTP transfer |
 | `scripts/nvftp_pull.sh` | Non-interactive recursive inbound SFTP transfer |
+| `scripts/checkpoint_download_manifest.sh` | Records the manifest from a successful inbound pipeline |
 | `scripts/clone_target.sh` | Authenticated target clone |
 | `scripts/prepare_candidate.sh` | Deletion-aware content overlay |
 | `scripts/detect_changes.sh` | Change reports and pinned-base metadata |
