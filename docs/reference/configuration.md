@@ -1,0 +1,49 @@
+# Configuration reference
+
+## Pipeline selection
+
+| Variable | Default | Accepted values | Purpose |
+| --- | --- | --- | --- |
+| `SYNC_DIRECTION` | `gitlab-to-nvftp` | `gitlab-to-nvftp`, `nvftp-to-gitlab`, `both` | Selects which jobs are added to the pipeline |
+
+## Shared NVFTP variables
+
+| Variable | Required | Type | Purpose |
+| --- | --- | --- | --- |
+| `NVFTP_USER` | Yes | Variable | NVFTP-generated SSH username |
+| `NVFTP_PRIVATE_KEY` | Yes | **File** | Dedicated passwordless private key |
+| `NVFTP_HOST` | No | Variable | SFTP host; defaults to `transfer.nvftp.nvidia.com` |
+| `NVFTP_KNOWN_HOSTS` | No | Variable or File | Trusted host entry; enables strict host verification |
+| `NVFTP_REMOTE_DIR` | Deprecated | Variable | Compatibility fallback for either direction-specific directory |
+
+Without `NVFTP_KNOWN_HOSTS`, the scripts use OpenSSH's `accept-new` policy. With it, they use strict checking against the supplied entry.
+
+## GitLab-to-NVFTP variables
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NVFTP_UPLOAD_DIR` | Yes | Remote directory receiving the image archive |
+
+GitLab supplies the container-registry variables used by the build and export jobs. The resulting archive is named `flask-app-$CI_COMMIT_SHORT_SHA.tar.gz`.
+
+## NVFTP-to-GitLab variables
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `NVFTP_DOWNLOAD_DIR` | Yes | — | Remote folder downloaded recursively |
+| `GITLAB_API_TOKEN` | Yes | — | Token for target clone, branch push, and MR API calls |
+| `TARGET_PROJECT_PATH` | Yes | — | Target `namespace/project` path |
+| `TARGET_PROJECT_ID` | Yes | — | Numeric target GitLab project ID |
+| `TARGET_TEST_COMMAND` | Yes | — | Validation command run from the target repository root |
+| `TARGET_DEFAULT_BRANCH` | No | `main` | Comparison base and MR target |
+| `TARGET_SYNC_PATH` | No | `synced-content` | Repository-relative path mirrored from NVFTP |
+| `TARGET_REPO_URL` | No | Derived | Override target clone/push URL |
+| `TARGET_GITLAB_API_URL` | No | `CI_API_V4_URL` | Override target GitLab API base URL |
+| `SYNC_BRANCH_PREFIX` | No | `nvftp-sync` | Prefix for deterministic proposal branches |
+| `SYNC_SOURCE_NAME` | No | Download-folder basename | Label used in branch and MR metadata |
+| `GITLAB_SYNC_USER_NAME` | No | `NVFTP Sync Bot` | Commit author name |
+| `GITLAB_SYNC_USER_EMAIL` | No | `nvftp-sync@noreply.invalid` | Commit author email |
+
+`TARGET_SYNC_PATH` must be a safe repository-relative subdirectory. Root paths, `.git`, and parent traversal are rejected.
+
+The token user needs repository read/write access and API access in the target project. Keep the default branch protected and do not grant permission to bypass its rules.

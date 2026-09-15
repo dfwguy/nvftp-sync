@@ -6,11 +6,11 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 validate_target_configuration
 require_var PUBLISHED_BRANCH
-require_var NVFTP_REMOTE_DIR
 require_var CI_API_V4_URL
 require_var TARGET_BASE_SHA
 
 reports_dir=${REPORTS_DIR:-reports}
+download_dir=$(nvftp_download_dir)
 target_path=${TARGET_SYNC_PATH:-synced-content}
 target_branch=${TARGET_DEFAULT_BRANCH:-main}
 api_base=${TARGET_GITLAB_API_URL:-$CI_API_V4_URL}
@@ -26,7 +26,7 @@ cat >"$description_file" <<EOF
 
 This merge request proposes validated NVFTP contents in the target repository. **Human review and merge are required.**
 
-- Source NVFTP folder: $NVFTP_REMOTE_DIR
+- Source NVFTP folder: $download_dir
 - Target repository: $TARGET_PROJECT_PATH
 - Target path: $target_path
 - Target base commit: $TARGET_BASE_SHA

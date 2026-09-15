@@ -5,6 +5,7 @@ default:
 
 workflow:
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
     - if: '$CI_PIPELINE_SOURCE == "api"'
@@ -12,6 +13,9 @@ workflow:
     - when: never
 
 stages:
+  - build
+  - export
+  - upload_to_nvftp
   - pull_from_nvftp
   - diff_against_target_main
   - validate_candidate
@@ -20,123 +24,15 @@ stages:
 
 variables:
   GIT_DEPTH: "1"
-  TARGET_DEFAULT_BRANCH: "main"
-  TARGET_SYNC_PATH: "synced-content"
-  SYNC_BRANCH_PREFIX: "nvftp-sync"
+  SYNC_DIRECTION:
+    value: "gitlab-to-nvftp"
+    options:
+      - "gitlab-to-nvftp"
+      - "nvftp-to-gitlab"
+      - "both"
+    description: "Select the synchronization workflow to run. Scheduled pipelines should set this explicitly."
   NVFTP_HOST: "transfer.nvftp.nvidia.com"
 
-pull-from-nvftp:
-  stage: pull_from_nvftp
-  image: alpine:3.20
-  before_script:
-    - apk add --no-cache openssh-client
-  script:
-    - ./scripts/nvftp_pull.sh
-  artifacts:
-    when: always
-    paths:
-      - tmp/nvftp-source/
-    expire_in: 7 days
-
-diff-against-target-main:
-  stage: diff_against_target_main
-  image: alpine:3.20
-  needs:
-    - job: pull-from-nvftp
-      artifacts: true
-  before_script:
-    - apk add --no-cache git rsync
-  script:
-    - ./scripts/clone_target.sh
-    - ./scripts/prepare_candidate.sh
-    - ./scripts/detect_changes.sh
-  artifacts:
-    when: always
-    reports:
-      dotenv: reports/sync.env
-    paths:
-      - tmp/nvftp-source/
-      - reports/
-    expire_in: 7 days
-
-validate-candidate:
-  stage: validate_candidate
-  image: python:3.12-slim
-  needs:
-    - job: diff-against-target-main
-      artifacts: true
-  before_script:
-    - apt-get update
-    - apt-get install --yes --no-install-recommends git make rsync
-  script:
-    - |
-      if [ "$HAS_CHANGES" != "true" ]; then
-        printf '%s\n' 'No NVFTP changes detected; validation skipped.' | tee reports/test.log
-        exit 0
-      fi
-    - ./scripts/clone_target.sh tmp/target-repo "$TARGET_BASE_SHA"
-    - ./scripts/prepare_candidate.sh
-    - |
-      set +e
-      ./scripts/run_tests.sh >reports/test.log 2>&1
-      test_status=$?
-      set -e
-      cat reports/test.log
-      exit "$test_status"
-  artifacts:
-    when: always
-    reports:
-      dotenv: reports/sync.env
-    paths:
-      - tmp/nvftp-source/
-      - reports/
-    expire_in: 7 days
-
-publish-sync-branch:
-  stage: publish_sync_branch
-  image: alpine:3.20
-  needs:
-    - job: validate-candidate
-      artifacts: true
-  before_script:
-    - apk add --no-cache git rsync
-  script:
-    - |
-      if [ "$HAS_CHANGES" != "true" ]; then
-        cp reports/sync.env reports/publish.env
-        printf '%s\n' 'PUBLISHED_BRANCH=' >>reports/publish.env
-        printf '%s\n' 'No NVFTP changes detected; branch publication skipped.'
-        exit 0
-      fi
-    - ./scripts/clone_target.sh tmp/target-repo "$TARGET_BASE_SHA"
-    - ./scripts/prepare_candidate.sh
-    - ./scripts/detect_changes.sh
-    - ./scripts/publish_sync_branch.sh
-  artifacts:
-    when: always
-    reports:
-      dotenv: reports/publish.env
-    paths:
-      - reports/
-    expire_in: 7 days
-
-create-or-update-mr:
-  stage: create_or_update_mr
-  image: alpine:3.20
-  needs:
-    - job: publish-sync-branch
-      artifacts: true
-  before_script:
-    - apk add --no-cache curl jq
-  script:
-    - |
-      if [ "$HAS_CHANGES" != "true" ]; then
-        printf '%s\n' 'No NVFTP changes detected; merge request creation skipped.'
-        exit 0
-      fi
-    - ./scripts/create_or_update_mr.sh
-  artifacts:
-    when: always
-    paths:
-      - reports/
-    expire_in: 7 days
+include:
+  - local: /ci/gitlab-to-nvftp.yml
+  - local: /ci/nvftp-to-gitlab.yml

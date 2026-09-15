@@ -1,6 +1,8 @@
 
 # NVFTP to GitLab Sync Implementation Spec
 
+> Status: implemented. This document records the original inbound requirements. For current operating instructions and configuration, use the [Diátaxis documentation index](README.md#documentation).
+
 Implement an inbound sync workflow for the GitLab repository [nvftp-sync](https://gitlab-master.nvidia.com/micheller/nvftp-sync) that detects changes from a designated NVFTP folder, validates them with the standard test suite, and creates a merge request into `main` for human review. Do not implement any automatic merge behavior.
 
 ## Goal
@@ -73,7 +75,7 @@ Implement the workflow so it uses GitLab CI/CD variables rather than hardcoded s
 ### NVFTP access
 - `NVFTP_USER`
 - `NVFTP_PRIVATE_KEY` (GitLab File variable; use passwordless RSA PEM key for CI compatibility)
-- `NVFTP_REMOTE_DIR`
+- `NVFTP_DOWNLOAD_DIR` (`NVFTP_REMOTE_DIR` remains a deprecated compatibility fallback)
 
 ### GitLab MR automation
 - `GITLAB_API_TOKEN` or equivalent token with permission to:
@@ -82,7 +84,7 @@ Implement the workflow so it uses GitLab CI/CD variables rather than hardcoded s
 
 ### Optional configuration
 - `SYNC_BRANCH_PREFIX` default: `nvftp-sync`
-- `SYNC_TARGET_PATH` default: `synced-content`
+- `TARGET_SYNC_PATH` default: `synced-content`
 - `SYNC_SOURCE_NAME` human-readable source label for MR titles/descriptions
 
 ## Branching model
@@ -298,4 +300,3 @@ Prefer a simple, auditable implementation over a highly dynamic one. The most im
 
 - [https://gitlab-master.nvidia.com/micheller/nvftp-sync/-/jobs/432876693](https://gitlab-master.nvidia.com/micheller/nvftp-sync/-/jobs/432876693)
 - [NVFTP - 2026 new process - WIP](https://nvidia.atlassian.net/wiki/spaces/STS/pages/3484319971)
-
