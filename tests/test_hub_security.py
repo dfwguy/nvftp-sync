@@ -172,6 +172,22 @@ def test_api_requires_auth_and_enforces_csrf_and_roles(portal) -> None:
     assert all("must-not-leak" not in repr(event) for event in events)
 
 
+def test_logout_clears_browser_session_and_writes_audit_event(portal) -> None:
+    app, events = portal
+    cookie, csrf = _login(app, "operator")
+    status, headers, raw = _request(
+        app,
+        "POST",
+        "/api/v1/auth/logout",
+        cookie=cookie,
+        csrf=csrf,
+    )
+    assert status == 200
+    assert json.loads(raw) == {"ok": True}
+    assert "Max-Age=0" in headers["Set-Cookie"]
+    assert ("auth.logout", "operator", {}) in events
+
+
 def test_admin_rotates_credential_without_secret_in_response_or_audit(portal) -> None:
     app, events = portal
     cookie, csrf = _login(app, "admin")

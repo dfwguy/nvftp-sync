@@ -47,6 +47,8 @@ let state = {data: demo, mode:'connecting', route:'overview', session:null};
 const workspace = document.querySelector('#workspace');
 const banner = document.querySelector('#dataBanner');
 const loginDialog = document.querySelector('#loginDialog');
+const accountMenuButton = document.querySelector('#accountMenuButton');
+const accountMenu = document.querySelector('#accountMenu');
 
 const esc = value => String(value == null ? '' : value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const bytes = value => {const n=Number(value)||0;const units=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<units.length-1){v/=1024;i++}return `${v.toFixed(i>1?1:0)} ${units[i]}`};
@@ -78,6 +80,9 @@ async function loadData(){
     if(navCounts[1])navCounts[1].textContent=String(live.approvals.length);
     const sessionName=state.session.display_name||state.session.user;
     document.querySelector('.avatar').textContent=String(sessionName).split(/\s+/).map(part=>part[0]).join('').slice(0,2).toUpperCase();
+    document.querySelector('#accountName').textContent=sessionName;
+    document.querySelector('#accountEmail').textContent=state.session.user;
+    document.querySelector('#accountRole').textContent=state.session.role;
     document.querySelector('.mini-health strong').textContent='Hub API operational';
     document.querySelector('.mini-health small').textContent=`${live.services.filter(item=>item.status==='healthy').length} of ${live.services.length} integrations healthy`;
     banner.className='data-banner live';
@@ -94,6 +99,8 @@ async function loadData(){
 
 function showLogin(){
   state.mode='locked';
+  state.session=null;
+  closeAccountMenu();
   banner.className='data-banner';
   banner.innerHTML='<span>AUTH REQUIRED</span> Sign in to connect to the protected control plane.';
   if(!loginDialog.open)loginDialog.showModal();
@@ -197,6 +204,27 @@ function openCommand(){const d=document.querySelector('#commandDialog');d.showMo
 function renderCommands(q){const list=commandItems.filter(x=>x.join(' ').toLowerCase().includes(q.toLowerCase()));document.querySelector('#commandResults').innerHTML=`<div class="command-group">Commands &amp; destinations</div>${list.map((x,i)=>`<div class="command-item ${i===0?'selected':''}" data-command="${x[3]}"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small></div>`).join('')||`<div class="empty-state"><div class="empty-icon">⌕</div><h2>No matching commands</h2><p>Try a project name, pipeline ID, or “import”.</p></div>`}`;document.querySelectorAll('[data-command]').forEach(x=>x.onclick=()=>{document.querySelector('#commandDialog').close();location.hash=x.dataset.command})}
 document.querySelector('#commandTrigger').onclick=openCommand;document.querySelector('#commandInput').oninput=e=>renderCommands(e.target.value);document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openCommand()}});
 document.querySelector('#themeToggle').onclick=()=>{const root=document.documentElement;root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';localStorage.setItem('nvis-theme',root.dataset.theme)};
+function closeAccountMenu({restoreFocus=false}={}){accountMenu.hidden=true;accountMenuButton.setAttribute('aria-expanded','false');if(restoreFocus)accountMenuButton.focus()}
+function toggleAccountMenu(){const opening=accountMenu.hidden;if(opening&&!state.session)return;accountMenu.hidden=!opening;accountMenuButton.setAttribute('aria-expanded',String(opening));if(opening)setTimeout(()=>accountMenu.querySelector('[role="menuitem"]')?.focus(),0)}
+async function logout(){
+  if(!state.session)return;
+  const response=await fetch(`${API}/auth/logout`,{method:'POST',headers:{'X-CSRF-Token':state.session.csrf_token}});
+  if(!response.ok)throw new Error(`Sign out failed: HTTP ${response.status}`);
+  state.session=null;
+  closeAccountMenu();
+  document.querySelector('#loginForm').reset();
+  showLogin();
+}
+accountMenuButton.onclick=event=>{event.stopPropagation();toggleAccountMenu()};
+accountMenu.addEventListener('click',async event=>{
+  const item=event.target.closest('[data-account-action]');if(!item)return;
+  const accountAction=item.dataset.accountAction;
+  if(accountAction==='profile'){location.hash='access';closeAccountMenu();return}
+  if(accountAction==='theme'){document.querySelector('#themeToggle').click();closeAccountMenu({restoreFocus:true});return}
+  if(accountAction==='logout'){item.disabled=true;try{await logout()}catch(error){item.disabled=false;toast('Sign out failed',error.message)}}
+});
+document.addEventListener('click',event=>{if(!accountMenu.hidden&&!event.target.closest('.account-control'))closeAccountMenu()});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!accountMenu.hidden){event.preventDefault();closeAccountMenu({restoreFocus:true})}});
 const saved=localStorage.getItem('nvis-theme');if(saved)document.documentElement.dataset.theme=saved;
 document.querySelector('#menuToggle').onclick=()=>{const s=document.querySelector('#sidebar');s.classList.toggle('open');document.querySelector('#scrim').classList.toggle('open');document.querySelector('#menuToggle').setAttribute('aria-expanded',s.classList.contains('open'))};document.querySelector('#scrim').onclick=()=>document.querySelector('#menuToggle').click();
 window.addEventListener('hashchange',renderRoute);

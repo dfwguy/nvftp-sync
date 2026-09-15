@@ -46,7 +46,21 @@
           <button class="command-trigger" id="commandTrigger" title="Open command center"><span>⌕</span><span>Search or run a command</span><kbd>⌘ K</kbd></button>
           <button class="icon-button" id="themeToggle" aria-label="Toggle color theme">◐</button>
           <button class="icon-button notification" aria-label="Notifications">♢<i></i></button>
-          <button class="avatar" aria-label="Open user menu">HL</button>
+          <div class="account-control">
+            <button class="avatar" id="accountMenuButton" aria-label="Open user menu" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu">HL</button>
+            <div class="account-menu" id="accountMenu" role="menu" aria-labelledby="accountMenuButton" hidden>
+              <div class="account-summary">
+                <strong id="accountName">Signed-in user</strong>
+                <span id="accountEmail"></span>
+                <span class="badge" id="accountRole">viewer</span>
+              </div>
+              <div class="account-menu-actions">
+                <button type="button" role="menuitem" data-account-action="profile"><span>♙</span> Access &amp; RBAC</button>
+                <button type="button" role="menuitem" data-account-action="theme"><span>◐</span> Toggle theme</button>
+                <button type="button" role="menuitem" class="sign-out" data-account-action="logout"><span>↪</span> Sign out</button>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
       <div class="data-banner" id="dataBanner" role="status">
@@ -69,7 +83,7 @@
       <p class="eyebrow">Protected control plane</p>
       <h2>Sign in to NVIS-OVA</h2>
       <p>Use the staging-hub account provisioned on this VM. Credentials remain local.</p>
-      <div class="field"><label for="loginUser">Username</label><input id="loginUser" autocomplete="username" required value="admin"></div>
+      <div class="field"><label for="loginUser">NVIDIA email</label><input id="loginUser" type="email" autocomplete="username" placeholder="name@nvidia.com" required></div>
       <div class="field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
       <p class="login-error" id="loginError" role="alert"></p>
       <div class="modal-actions"><button class="btn primary" type="submit">Sign in securely</button></div>
