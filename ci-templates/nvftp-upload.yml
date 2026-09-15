@@ -1,0 +1,40 @@
+# Safe reference job for uploading a complete, prebuilt envelope to NVFTP.
+# Required protected file variables: NVFTP_PRIVATE_KEY and NVFTP_KNOWN_HOSTS.
+# Required protected variables: NVFTP_USER, NVFTP_REMOTE_DIR, NVFTP_ARTIFACT.
+
+nvftp-upload-envelope:
+  stage: upload
+  image: alpine:3.22
+  before_script:
+    - apk add --no-cache openssh-client
+    - install -d -m 700 "$HOME/.ssh"
+    - install -m 600 "$NVFTP_PRIVATE_KEY" "$HOME/.ssh/nvftp_key"
+    - install -m 600 "$NVFTP_KNOWN_HOSTS" "$HOME/.ssh/known_hosts"
+    - ssh-keygen -y -f "$HOME/.ssh/nvftp_key" >/dev/null
+  script:
+    - |
+      set -eu
+      case "$NVFTP_REMOTE_DIR" in
+        /*) ;;
+        *) echo "NVFTP_REMOTE_DIR must be absolute" >&2; exit 2 ;;
+      esac
+      case "$NVFTP_REMOTE_DIR" in *..*|*[!A-Za-z0-9_./-]*) echo "unsafe remote path" >&2; exit 2;; esac
+      case "$NVFTP_ARTIFACT" in ''|*[!A-Za-z0-9._-]*) echo "unsafe artifact name" >&2; exit 2;; esac
+      for suffix in .MANIFEST.json .git.bundle .tar.gz .SHA256SUMS; do
+        test -f "${NVFTP_ARTIFACT}${suffix}"
+      done
+      {
+        printf 'cd %s\n' "$NVFTP_REMOTE_DIR"
+        # Publish the checksum marker last so consumers do not accept a partial upload.
+        for suffix in .MANIFEST.json .git.bundle .tar.gz .SHA256SUMS; do
+          printf 'put %s\n' "${NVFTP_ARTIFACT}${suffix}"
+        done
+        printf 'bye\n'
+      } >nvftp-upload.batch
+      sftp -b nvftp-upload.batch \
+        -i "$HOME/.ssh/nvftp_key" \
+        -o IdentitiesOnly=yes \
+        -o BatchMode=yes \
+        -o StrictHostKeyChecking=yes \
+        -o "UserKnownHostsFile=$HOME/.ssh/known_hosts" \
+        "${NVFTP_USER}@transfer.nvftp.nvidia.com"

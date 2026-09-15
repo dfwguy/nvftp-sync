@@ -1,0 +1,40 @@
+[paths]
+root = "/data/nvis-integration"
+inbox = "/data/nvis-integration/inbox"
+quarantine = "/data/nvis-integration/quarantine"
+work = "/data/nvis-integration/work"
+state = "/data/nvis-integration/state"
+
+[nvftp]
+host = "transfer.nvftp.nvidia.com"
+username = "nv-ssh-cakl6hxrzwus"
+identity_file = "/etc/nvis-integration/credentials/nvftp_ed25519"
+known_hosts_file = "/etc/nvis-integration/known_hosts"
+allowed_prefixes = [
+  "/nvidia-space/shared/NscaleTX-8K",
+  "/nvidia-space/shared/NscaleTX-16K",
+]
+
+[gitlab]
+base_url = "https://gitlab-master.nvidia.com"
+group_path = "nvis-ova"
+group_id = 401322
+bot_username = "REPLACE_GITLAB_BOT_USERNAME"
+token_file = "/etc/nvis-integration/credentials/gitlab_token"
+new_project_visibility = "private"
+
+[slack]
+bot_token_file = "/etc/nvis-integration/credentials/slack_bot_token"
+app_token_file = "/etc/nvis-integration/credentials/slack_app_token"
+allowed_user_ids = []
+approver_user_ids = []
+allowed_channel_ids = []
+
+[routing.exact_sources]
+"/nvidia-space/shared/NscaleTX-16K/RackStatus_PythonCM" = "nvis-ova/rack-status-pythoncm"
+
+[limits]
+max_artifact_bytes = 2000000000
+max_archive_members = 100000
+max_unpacked_bytes = 8000000000
+max_scan_file_bytes = 2000000

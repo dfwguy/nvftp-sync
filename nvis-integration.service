@@ -1,0 +1,51 @@
+[Unit]
+Description=NVIS Slack to NVFTP/GitLab integration worker
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/nvis-integration/credentials/slack_bot_token
+ConditionPathExists=/etc/nvis-integration/credentials/slack_app_token
+ConditionPathExists=/etc/nvis-integration/credentials/gitlab_token
+
+[Service]
+Type=simple
+User=nvis-integrator
+Group=nvis-integrator
+WorkingDirectory=/opt/nvis-integration
+ExecStart=/opt/nvis-integration/.venv/bin/nvis-integration serve
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RemoveIPC=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+ReadOnlyPaths=/opt/nvis-integration /etc/nvis-integration
+ReadWritePaths=/data/nvis-integration
+TasksMax=128
+LimitNOFILE=4096
+MemoryMax=2G
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

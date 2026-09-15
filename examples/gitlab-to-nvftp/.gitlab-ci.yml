@@ -1,0 +1,70 @@
+default:
+  tags:
+    - type/docker
+    - os/linux
+
+stages:
+  - build
+  - export
+  - upload
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  TAR_NAME: flask-app-$CI_COMMIT_SHORT_SHA.tar.gz
+
+build-image:
+  stage: build
+  image: docker:24.0.5-cli
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - docker build -t "${IMAGE_TAG}" .
+    - docker push "${IMAGE_TAG}"
+
+export-image:
+  stage: export
+  image: docker:24.0.5-cli
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - docker pull "${IMAGE_TAG}"
+    - docker save "${IMAGE_TAG}" | gzip > "${TAR_NAME}"
+    - ls -lh "${TAR_NAME}"
+  artifacts:
+    paths:
+      - ${TAR_NAME}
+    expire_in: 7 days
+
+upload-to-nvftp:
+  stage: upload
+  image: alpine:latest
+  needs:
+    - job: export-image
+      artifacts: true
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - cp "$NVFTP_PRIVATE_KEY" ~/.ssh/nvftp_key
+    - chmod 600 ~/.ssh/nvftp_key
+    - head -n 1 ~/.ssh/nvftp_key
+    - tail -n 1 ~/.ssh/nvftp_key
+    - ssh-keygen -y -f ~/.ssh/nvftp_key >/dev/null
+  script:
+    - |
+      sftp -i ~/.ssh/nvftp_key \
+        -o StrictHostKeyChecking=no \
+        "${NVFTP_USER}@transfer.nvftp.nvidia.com" <<EOF
+      cd ${NVFTP_REMOTE_DIR}
+      put ${TAR_NAME}
+      bye
+      EOF

@@ -1,1 +1,10 @@
-*.tar.gz
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.sqlite3*
+.coverage
+dist/
+build/
+

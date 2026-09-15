@@ -1,0 +1,31 @@
+[project]
+name = "nvis-integration"
+version = "0.1.0"
+description = "Slack-triggered, human-gated NVFTP to NVIDIA GitLab importer"
+requires-python = ">=3.11"
+dependencies = ["slack-bolt>=1.21,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.12"]
+
+[project.scripts]
+nvis-integration = "nvis_integration.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nvis_integration"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# CLI and Slack handler boundaries must convert arbitrary operational failures
+# into a safe exit/status instead of terminating the long-running service.
+ignore = ["BLE001"]
