@@ -31,7 +31,8 @@ preserved under `examples/gitlab-to-nvftp/`. It is reference material rather tha
 the production pipeline; the staging hub uses pinned SSH host keys and never prints
 private-key material.
 
-The portal is designed for a loopback bind behind an SSH tunnel or authenticated
-TLS reverse proxy. The Slack service remains inactive until its bot/app credentials
-and immutable user/channel allowlists are installed. Never put tokens in this
-repository or a Slack message.
+The deployed staging portal is explicitly bound to port 8787 on the NVIDIA-internal
+`nvisova` VM. Public or cross-network deployments must use an SSH tunnel or an
+authenticated TLS reverse proxy. The Slack service remains inactive until its
+bot/app credentials and immutable user/channel allowlists are installed. Never put
+tokens in this repository or a Slack message.

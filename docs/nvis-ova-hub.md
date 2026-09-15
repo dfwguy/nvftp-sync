@@ -82,7 +82,16 @@ systemctl --user status nvis-ova-slack.service
 
 ## Portal access
 
-The service deliberately listens only on loopback. From a workstation, tunnel it:
+On the NVIDIA-internal `nvisova` VM, the user service is explicitly configured for
+direct HTTP access at:
+
+```text
+http://nvisova.nvidia.com:8787
+```
+
+This internal-only exception uses an HttpOnly, SameSite=Strict session cookie but
+does not provide transport encryption. Do not expose port 8787 outside NVIDIA's
+trusted network. For encrypted transport without a reverse proxy, tunnel it:
 
 ```bash
 ssh -L 8787:127.0.0.1:8787 hlakshminara@<staging-vm>
@@ -133,5 +142,4 @@ before integration, avoiding long-lived customer forks and stale-base publicatio
 - No GitLab publication before artifact classification attestation.
 - No NVFTP path outside configured prefixes.
 - No credentials in repository files, Slack text, audit details, or command output.
-- No remote portal bind until an authenticated TLS reverse proxy is deployed.
-
+- No public-network portal bind; production or cross-network access requires TLS.

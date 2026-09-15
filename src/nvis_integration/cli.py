@@ -44,6 +44,9 @@ def _parser() -> argparse.ArgumentParser:
     hub.add_argument("--session-secret", type=pathlib.Path, required=True)
     hub.add_argument("--credential-root", type=pathlib.Path, required=True)
     hub.add_argument("--port", type=int, default=8787)
+    hub.add_argument("--host", default="127.0.0.1")
+    hub.add_argument("--allow-network", action="store_true")
+    hub.add_argument("--insecure-http", action="store_true")
     audit = subcommands.add_parser("audit-verify", help="verify the hash-chained audit ledger")
     audit.add_argument("--json", action="store_true")
     subcommands.add_parser(
@@ -162,9 +165,15 @@ def main(argv: list[str] | None = None) -> None:
                 auth_records_file=args.auth_records,
                 session_secret_file=args.session_secret,
                 credential_root=args.credential_root,
+                secure_cookies=not args.insecure_http,
             )
-            server = serve_localhost(application, port=args.port)
-            LOG.info("NVIS-OVA Hub listening on http://127.0.0.1:%s", args.port)
+            server = serve_localhost(
+                application,
+                port=args.port,
+                host=args.host,
+                allow_network=args.allow_network,
+            )
+            LOG.info("NVIS-OVA Hub listening on http://%s:%s", args.host, args.port)
             server.serve_forever()
             return
         if args.command == "audit-verify":

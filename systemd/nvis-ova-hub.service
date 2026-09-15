@@ -9,7 +9,7 @@ ConditionPathExists=%h/cicd-hub/runtime/secrets/session-secret
 [Service]
 Type=simple
 WorkingDirectory=%h/cicd-hub/worktrees/nvftp-sync-control-plane
-ExecStart=%h/cicd-hub/runtime/venv/bin/nvis-integration --config %h/cicd-hub/runtime/config.toml hub-serve --web-root %h/cicd-hub/worktrees/nvftp-sync-control-plane/web --auth-records %h/cicd-hub/runtime/secrets/portal-auth.json --session-secret %h/cicd-hub/runtime/secrets/session-secret --credential-root %h/cicd-hub/runtime/secrets --port 8787
+ExecStart=%h/cicd-hub/runtime/venv/bin/nvis-integration --config %h/cicd-hub/runtime/config.toml hub-serve --web-root %h/cicd-hub/worktrees/nvftp-sync-control-plane/web --auth-records %h/cicd-hub/runtime/secrets/portal-auth.json --session-secret %h/cicd-hub/runtime/secrets/session-secret --credential-root %h/cicd-hub/runtime/secrets --host 0.0.0.0 --port 8787 --allow-network --insecure-http
 Restart=on-failure
 RestartSec=5
 UMask=0077

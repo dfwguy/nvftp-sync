@@ -226,5 +226,30 @@ def test_static_path_traversal_is_rejected(portal, tmp_path: pathlib.Path) -> No
 
 def test_server_refuses_non_local_bind(portal) -> None:
     app, _ = portal
-    with pytest.raises(ValueError, match="localhost"):
+    with pytest.raises(ValueError, match="allow_network"):
         serve_localhost(app, host="0.0.0.0")
+
+
+def test_internal_http_mode_omits_secure_cookie(tmp_path: pathlib.Path) -> None:
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "index.html").write_text("portal")
+    password = PasswordAuthenticator.password_record("password")
+    app = HubApplication(
+        web_root=web,
+        upload_root=tmp_path / "uploads",
+        max_upload_bytes=32,
+        sessions=SessionCodec(b"x" * 32),
+        authenticator=PasswordAuthenticator({"admin": ("admin", password)}),
+        audit=lambda _event, _actor, _details: None,
+        secure_cookies=False,
+    )
+    status, headers, _ = _request(
+        app,
+        "POST",
+        "/api/v1/auth/login",
+        body=json.dumps({"username": "admin", "password": "password"}).encode(),
+    )
+    assert status == 200
+    assert "HttpOnly; SameSite=Strict" in headers["Set-Cookie"]
+    assert "Secure" not in headers["Set-Cookie"]

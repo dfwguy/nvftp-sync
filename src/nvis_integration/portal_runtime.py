@@ -113,6 +113,7 @@ def build_portal(
     auth_records_file: pathlib.Path,
     session_secret_file: pathlib.Path,
     credential_root: pathlib.Path,
+    secure_cookies: bool = True,
 ) -> HubApplication:
     """Build the secure portal with live GitLab/NVFTP and local state readers."""
     # Ensure the read-only SQLite view always has a schema, even on first boot.
@@ -313,4 +314,5 @@ def build_portal(
         audit=audit,
         readers=readers,
         credentials=credentials,
+        secure_cookies=secure_cookies,
     )

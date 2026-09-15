@@ -143,6 +143,7 @@ class HubApplication:
         audit: AuditHook,
         readers: PortalReaders | None = None,
         credentials: CredentialStore | None = None,
+        secure_cookies: bool = True,
     ) -> None:
         self.web_root = web_root.resolve()
         self.upload_root = upload_root.resolve()
@@ -153,6 +154,7 @@ class HubApplication:
         self.readers = readers or PortalReaders()
         self.credentials = credentials
         self.audit = audit
+        self.secure_cookies = secure_cookies
 
     def __call__(self, environ: dict[str, object], start_response: Callable) -> Iterable[bytes]:
         try:
@@ -244,7 +246,8 @@ class HubApplication:
             200,
             self._session_json(session),
             cookie=(
-                f"nvis_session={token}; Path=/; Max-Age=3600; HttpOnly; Secure; SameSite=Strict"
+                f"nvis_session={token}; Path=/; Max-Age=3600; HttpOnly; "
+                f"{'Secure; ' if self.secure_cookies else ''}SameSite=Strict"
             ),
         )
 
@@ -342,8 +345,8 @@ class HubApplication:
             "expires_at": session.expires_at,
         }
 
-    @staticmethod
     def _json(
+        self,
         status: int,
         value: object,
         *,
@@ -357,7 +360,10 @@ class HubApplication:
             headers.append(
                 (
                     "Set-Cookie",
-                    "nvis_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict",
+                    (
+                        "nvis_session=; Path=/; Max-Age=0; HttpOnly; "
+                        f"{'Secure; ' if self.secure_cookies else ''}SameSite=Strict"
+                    ),
                 )
             )
         return _Response(
@@ -410,11 +416,15 @@ def live_readers(
 
 
 def serve_localhost(
-    application: HubApplication, *, port: int = 8787, host: str = "127.0.0.1"
+    application: HubApplication,
+    *,
+    port: int = 8787,
+    host: str = "127.0.0.1",
+    allow_network: bool = False,
 ) -> WSGIServer:
-    """Create a localhost-only WSGI server; caller owns serve_forever/shutdown."""
-    if host not in {"127.0.0.1", "localhost"}:
-        raise ValueError("portal server may only bind to localhost")
+    """Create a WSGI server; network binding requires an explicit opt-in."""
+    if host not in {"127.0.0.1", "localhost"} and not allow_network:
+        raise ValueError("network portal bind requires allow_network=True")
     if not 1 <= port <= 65535:
         raise ValueError("invalid port")
     class ThreadedWSGIServer(socketserver.ThreadingMixIn, WSGIServer):
