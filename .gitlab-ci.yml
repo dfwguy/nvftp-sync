@@ -3,6 +3,9 @@ stages:
 
 default:
   image: python:3.14-slim
+  tags:
+    - type/docker
+    - os/linux
   before_script:
     - python -m pip install --disable-pip-version-check '.[dev]'
 
@@ -20,4 +23,3 @@ compile:
   stage: validate
   script:
     - python -m compileall -q src
-
