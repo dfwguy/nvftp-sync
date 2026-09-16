@@ -38,8 +38,11 @@ nvftp-sync-inbound:
       - .nvftp-sync-runtime/cache/
     policy: pull-push
   rules:
+    # A pipeline created from Build > Pipelines > New pipeline has source=web.
+    # Keep this rule independent of project variables so GitLab can never
+    # reject an intentional manual run as an empty pipeline.
+    - if: '$CI_PIPELINE_SOURCE == "web"'
     - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - |
       tools_dir=$(mktemp -d)
