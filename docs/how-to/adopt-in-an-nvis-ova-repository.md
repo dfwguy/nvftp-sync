@@ -10,8 +10,8 @@
 6. Keep the target default branch protected; the automation token should push
    proposal branches but never bypass review.
 7. Create a target-project schedule on its protected default branch.
-8. Run one manual inbound pipeline with
-   `SYNC_DIRECTION=nvftp-to-gitlab`, review its MR, and merge it.
+8. Run one manual pipeline on the target default branch, review the generated
+   MR, and merge it.
 9. Verify that the resulting default-branch pipeline publishes the approved
    codebase to `NVFTP_UPLOAD_DIR`.
 

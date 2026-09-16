@@ -67,8 +67,8 @@ from being mistaken for the approved published state.
 Create a pipeline schedule in the target project on its protected default
 branch. No schedule variable is required: when
 `NVFTP_SYNC_INBOUND_ENABLED=true`, scheduled default-branch pipelines run the
-inbound reconciliation job. For a one-off test, start a default-branch pipeline
-with `SYNC_DIRECTION=nvftp-to-gitlab`.
+inbound reconciliation job. For a one-off test, start a manual pipeline on the
+default branch; no selector variable is required.
 
 Inbound behavior:
 

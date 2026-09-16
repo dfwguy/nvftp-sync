@@ -39,7 +39,7 @@ nvftp-sync-inbound:
     policy: pull-push
   rules:
     - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "web" && $SYNC_DIRECTION == "nvftp-to-gitlab" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - |
       tools_dir=$(mktemp -d)
