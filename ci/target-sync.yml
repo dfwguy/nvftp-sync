@@ -15,7 +15,9 @@ variables:
 
 .nvftp-sync-target-job:
   image: "$NVFTP_SYNC_JOB_IMAGE"
-  stage: .pre
+  # GitLab will not create a pipeline containing only .pre/.post jobs. Use a
+  # normal built-in stage so a target with no other jobs can run this template.
+  stage: test
   resource_group: "nvftp-sync-$CI_PROJECT_ID"
   before_script:
     - apk add --no-cache git openssh-client rsync curl jq lftp
