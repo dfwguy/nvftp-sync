@@ -91,12 +91,6 @@ validate_target_configuration() {
     *[!0-9]*) die "TARGET_PROJECT_ID must be numeric" ;;
   esac
 
-  if [ -n "${CI_PROJECT_PATH:-}" ] && [ "$TARGET_PROJECT_PATH" = "$CI_PROJECT_PATH" ]; then
-    die "TARGET_PROJECT_PATH must identify a repository separate from this automation repository"
-  fi
-  if [ -n "${CI_PROJECT_ID:-}" ] && [ "$TARGET_PROJECT_ID" = "$CI_PROJECT_ID" ]; then
-    die "TARGET_PROJECT_ID must identify a repository separate from this automation repository"
-  fi
 }
 
 validate_target_path() {

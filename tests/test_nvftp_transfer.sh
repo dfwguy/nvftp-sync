@@ -35,36 +35,6 @@ EOF
 chmod +x "$test_dir/bin/sftp"
 
 cd "$test_dir/work"
-: >image.tar.gz
-PATH="$test_dir/bin:$PATH" \
-HOME="$test_dir/home" \
-NVFTP_USER=test-user \
-NVFTP_PRIVATE_KEY="$test_dir/nvftp_key" \
-NVFTP_UPLOAD_DIR='/upload destination' \
-OUTBOUND_ARCHIVE_NAME=image.tar.gz \
-SFTP_CAPTURE="$test_dir/upload.batch" \
-  "$REPO_DIR/scripts/nvftp_upload.sh"
-
-grep -Fqx 'cd "/upload destination"' "$test_dir/upload.batch"
-grep -Fqx 'put "image.tar.gz"' "$test_dir/upload.batch"
-grep -Fqx 'put "image.tar.gz.sha256"' "$test_dir/upload.batch"
-
-: >"$test_dir/upload-unchanged.batch"
-PATH="$test_dir/bin:$PATH" \
-HOME="$test_dir/home" \
-NVFTP_USER=test-user \
-NVFTP_PRIVATE_KEY="$test_dir/nvftp_key" \
-NVFTP_UPLOAD_DIR='/upload destination' \
-OUTBOUND_ARCHIVE_NAME=image.tar.gz \
-SFTP_CAPTURE="$test_dir/upload-unchanged.batch" \
-SFTP_REMOTE_FILE_SOURCE="$test_dir/work/image.tar.gz.sha256" \
-  "$REPO_DIR/scripts/nvftp_upload.sh"
-
-if grep -q '^put ' "$test_dir/upload-unchanged.batch"; then
-  printf '%s\n' 'FAIL: unchanged outbound archive was uploaded' >&2
-  exit 1
-fi
-
 PATH="$test_dir/bin:$PATH" \
 HOME="$test_dir/home" \
 NVFTP_USER=test-user \

@@ -1,39 +1,34 @@
-# Design, concurrency, and safety
+# Design and safety
 
-## Why one branch contains two job graphs
+## Repository ownership
 
-The synchronization direction is a runtime choice, not a source-code variant. Keeping both job graphs on the same maintained branch prevents the pipeline definitions and shared SSH behavior from drifting apart. Local CI includes keep each graph readable while the root file owns the public selector.
+`nvftp-sync` owns reusable YAML and scripts only. The target repository owns the
+content, pipeline schedule, proposal branches, MRs, and publication jobs. An
+included pipeline runs in the target project's checkout and security context.
 
-## Why the example is isolated
+## Review boundary
 
-The Flask container proves that the outbound workflow can build, export, and transfer an image, but it is not part of the synchronization framework. Keeping it under `examples/` prevents consumers from mistaking sample application files for required repository-root files. Configurable build variables allow each NVIS OVA repository to use the same process with its own Dockerfile and context.
+Inbound NVFTP files are external proposals. They are overlaid with deletion
+awareness, validated, and pushed to a deterministic non-protected branch. The
+automation never merges the MR or pushes to the target default branch.
 
-## Why the directory variables are separate
+Outbound publication is selected only for default-branch pushes that change the
+synchronized path. Thus an unreviewed sync branch cannot publish content.
 
-An upload directory is a destination; a download directory is a source. A single `NVFTP_REMOTE_DIR` was ambiguous once both operations could run together. `NVFTP_UPLOAD_DIR` and `NVFTP_DOWNLOAD_DIR` express intent and prevent an accidental round trip.
+## Workspace separation
 
-## What `both` means
+Use a separate incoming directory and published directory. This prevents an
+unapproved proposal from being interpreted as the approved state and removes a
+feedback loop between inbound polling and outbound publication.
 
-The two workflows are independent DAGs. The inbound pull can begin without waiting for the outbound upload, so it observes whatever was already present in its download directory when it connected. This makes `both` useful for operating two separate exchanges in one pipeline without implying data flow between them.
+## Concurrency and completion
 
-## Why transfer avoidance differs by direction
+Both jobs share a target-project `resource_group`, serializing access. Outbound
+mirroring includes deletions and writes its manifest last. Consumers that need
+a completion signal should watch that manifest.
 
-For outbound transfers, the pipeline owns the archive and can calculate its SHA-256 before connecting. It stores that value in a small sidecar on NVFTP and can safely skip an archive whose sidecar already matches.
+## Credentials
 
-For inbound folders, SFTP cannot request a recursive server-side checksum. Skipping the download therefore requires a producer-maintained manifest that represents the complete folder. The manifest checkpoint advances only after validation and MR processing succeed, ensuring a failed pipeline retries the same delivery.
-
-## Why inbound changes use a merge request
-
-NVFTP content is external input. The pipeline stages it against an exact target-base commit, runs the target's test command, and publishes only after validation. It then proposes the result rather than modifying the protected branch. This preserves human review, target-project approvals, and the normal audit trail.
-
-The branch is deterministic for each source, so subsequent runs update the same proposal. Publication uses `--force-with-lease`; an unexpected concurrent branch change fails instead of being silently overwritten.
-
-## SSH trust model
-
-Both directions require a dedicated passwordless key stored as a GitLab File variable. The scripts verify that the key is readable non-interactively and never print its contents.
-
-When `NVFTP_KNOWN_HOSTS` is configured, strict host checking is enabled. Otherwise, `accept-new` protects subsequent connections after trusting the host on first use. Supplying an audited known-hosts entry is the stronger production configuration.
-
-## Target-repository boundary
-
-Inbound synchronization requires a separate target project and rejects the automation project's own path or ID. Candidate content therefore never becomes a commit in this automation repository, and the automation contains no operation that merges the target MR.
+The NVFTP key and target access token live only in protected target-project
+variables. Strict host verification is enabled when `NVFTP_KNOWN_HOSTS` is
+provided. The tooling repository needs no synchronization secrets.

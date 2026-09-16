@@ -1,14 +1,14 @@
-# Schedule an inbound synchronization
+# Schedule inbound synchronization
 
-Use a GitLab pipeline schedule to poll an NVFTP folder and propose target-repository changes.
+Create the schedule in the target project, not in `nvftp-sync`:
 
-1. Open **Build → Pipeline schedules** in the automation project.
-2. Create a schedule on a protected ref that can access protected CI/CD variables.
-3. Choose the desired interval and time zone.
-4. Add a schedule variable named `SYNC_DIRECTION` with value `nvftp-to-gitlab`.
-5. Save and run the schedule once manually.
-6. Confirm that a no-change run succeeds without publishing a branch or opening a merge request.
+1. Open **Build → Pipeline schedules** in the target project.
+2. Select its protected default branch.
+3. Choose the polling interval and time zone.
+4. Ensure `NVFTP_SYNC_INBOUND_ENABLED=true` is defined by the target CI file or
+   project variables.
+5. Save and run the schedule once.
 
-Do not rely on the repository default for an inbound schedule. The default is deliberately `gitlab-to-nvftp` so existing push behavior remains outbound.
-
-Each changed run updates the deterministic sync branch and its existing open merge request. It does not create a new merge request on every polling interval.
+An unchanged run succeeds without creating a branch or MR. Changed runs update
+the deterministic branch and existing open MR. No manual pipeline kickoff is
+needed after the schedule is enabled.

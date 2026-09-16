@@ -1,65 +1,101 @@
-# Bidirectional GitLab and NVFTP synchronization
+# Reviewed NVFTP synchronization for GitLab
 
-This repository is the foundation for consistent GitLab and NVFTP transfer processes across NVIS OVA repositories. It hosts two selectable GitLab pipelines on one branch:
+This repository contains reusable GitLab CI configuration and scripts. It does
+not contain synchronized product content and its own pipeline never reads from
+or writes to NVFTP.
 
-- `gitlab-to-nvftp` builds the configured container, exports it, and uploads the archive to NVFTP.
-- `nvftp-to-gitlab` downloads an NVFTP folder, validates it against a separate target repository, and opens or updates a merge request.
-- `both` runs both independent workflows in the same pipeline.
+A target repository includes [`ci/target-sync.yml`](ci/target-sync.yml). The
+jobs then execute in that target project:
 
-The default is `gitlab-to-nvftp`, which preserves the behavior of ordinary push pipelines. Choose a different value for `SYNC_DIRECTION` when starting a manual, scheduled, API, or trigger pipeline.
+```text
+NVFTP incoming folder
+        |
+        | scheduled target pipeline
+        v
+target sync branch and merge request
+        |
+        | human review and merge
+        v
+target default branch
+        |
+        | default-branch push pipeline
+        v
+NVFTP published folder
+```
 
-> [!WARNING]
-> **Every Git push currently starts the GitLab → NVFTP workflow.** Because `gitlab-to-nvftp` is the default direction, pushing any branch creates a pipeline that builds, exports, and uploads a container archive when the required credentials are available. This includes documentation-only and feature-branch pushes. Confirm `NVFTP_UPLOAD_DIR` and the outbound build variables before pushing changes to a repository that uses this foundation.
->
-> NVFTP → GitLab does **not** currently run on every push. It runs only when `SYNC_DIRECTION=nvftp-to-gitlab` or `both` is supplied, commonly by a manual pipeline, API/trigger request, or pipeline schedule. Creating such a schedule makes inbound synchronization automatic at that schedule's frequency and should be communicated to repository users just as prominently.
+The target default branch is the source of truth. NVFTP input is treated as a
+proposal until its merge request is approved and merged.
 
-The outbound pipeline still builds and exports on every push, but it compares the archive SHA-256 with NVFTP and skips the upload when the remote checksum matches. Inbound pipelines can skip the recursive download when a producer-maintained manifest is configured. See [Avoid redundant transfers](docs/how-to/avoid-redundant-transfers.md) for the guarantees and setup requirements.
+## Adopt the template
 
-## Trigger behavior
+Add this to the target repository's `.gitlab-ci.yml`:
 
-| Trigger | Behavior without an override |
+```yaml
+include:
+  - project: nvis-ova/nvftp-sync
+    ref: <release-tag>
+    file: /ci/target-sync.yml
+
+variables:
+  NVFTP_SYNC_TOOLS_REF: "<release-tag>"
+  NVFTP_SYNC_INBOUND_ENABLED: "true"
+  NVFTP_SYNC_OUTBOUND_ENABLED: "true"
+  TARGET_SYNC_PATH: "synced-content"
+  TARGET_TEST_COMMAND: "<target validation command>"
+```
+
+Pin the include and `NVFTP_SYNC_TOOLS_REF` to the same release tag. The jobs
+clone the scripts from that revision with `CI_JOB_TOKEN`; the tooling project
+must allow the target project in its job-token allowlist.
+
+Configure these protected CI/CD variables in the **target project**:
+
+| Variable | Purpose |
 | --- | --- |
-| Push to any branch | Runs GitLab → NVFTP |
-| Manual web pipeline | Presents `SYNC_DIRECTION`; defaults to GitLab → NVFTP |
-| API or trigger pipeline | Defaults to GitLab → NVFTP unless the request supplies `SYNC_DIRECTION` |
-| Pipeline schedule | Defaults to GitLab → NVFTP unless the schedule explicitly sets `SYNC_DIRECTION` |
+| `NVFTP_USER` | NVFTP-generated SSH username |
+| `NVFTP_PRIVATE_KEY` | Passwordless private key stored as a GitLab File variable |
+| `NVFTP_KNOWN_HOSTS` | Audited host-key entry (recommended) |
+| `NVFTP_DOWNLOAD_DIR` | NVFTP incoming/proposal directory |
+| `NVFTP_UPLOAD_DIR` | NVFTP published/approved directory |
+| `GITLAB_API_TOKEN` | Target-project token with API and repository-write access |
 
-To run an inbound schedule, explicitly set `SYNC_DIRECTION=nvftp-to-gitlab`. To prevent push-triggered uploads, the root `workflow: rules` must be changed; merely omitting `NVFTP_UPLOAD_DIR` causes a failed outbound job rather than disabling it.
+Use different download and upload directories. This prevents unreviewed input
+from being mistaken for the approved published state.
 
-## Documentation
+## Automation
 
-The documentation follows the [Diátaxis](https://diataxis.fr/) organization:
+Create a pipeline schedule in the target project on its protected default
+branch. No schedule variable is required: when
+`NVFTP_SYNC_INBOUND_ENABLED=true`, scheduled default-branch pipelines run the
+inbound reconciliation job. For a one-off test, start a default-branch pipeline
+with `SYNC_DIRECTION=nvftp-to-gitlab`.
 
-### Tutorials
+Inbound behavior:
 
-- [Run your first GitLab-to-NVFTP sync](docs/tutorials/first-gitlab-to-nvftp-sync.md)
-- [Run your first NVFTP-to-GitLab sync](docs/tutorials/first-nvftp-to-gitlab-sync.md)
+1. Recursively download `NVFTP_DOWNLOAD_DIR`.
+2. Mirror it into `TARGET_SYNC_PATH`, including deletions.
+3. Run `TARGET_TEST_COMMAND` against the candidate working tree.
+4. Push or refresh a deterministic sync branch.
+5. Create or update an MR in the target repository.
 
-### How-to guides
+Outbound behavior:
 
-- [Configure GitLab CI/CD variables](docs/how-to/configure-cicd-variables.md)
-- [Adopt the process in an NVIS OVA repository](docs/how-to/adopt-in-an-nvis-ova-repository.md)
-- [Avoid redundant transfers](docs/how-to/avoid-redundant-transfers.md)
-- [Run one or both synchronization directions](docs/how-to/run-sync-directions.md)
-- [Schedule an inbound synchronization](docs/how-to/schedule-inbound-sync.md)
-- [Migrate from `NVFTP_REMOTE_DIR`](docs/how-to/migrate-directory-variable.md)
+1. Run only after a push to the target default branch that changes
+   `TARGET_SYNC_PATH`.
+2. Mirror that directory to `NVFTP_UPLOAD_DIR`, including remote deletions.
+3. Write `.nvftp-sync-manifest` last so consumers can identify a completed
+   publication and its exact Git commit.
 
-### Reference
+The two jobs share a project-scoped `resource_group`, so they cannot operate on
+the workspace concurrently.
 
-- [Configuration variables](docs/reference/configuration.md)
-- [Pipeline jobs, outputs, and repository layout](docs/reference/pipeline.md)
+## Local verification
 
-### Explanation
+```sh
+./scripts/run_tests.sh
+```
 
-- [Design, concurrency, and safety](docs/explanation/design-and-safety.md)
-
-## Quick start
-
-1. Follow [Configure GitLab CI/CD variables](docs/how-to/configure-cicd-variables.md) to add `NVFTP_USER`, the `NVFTP_PRIVATE_KEY` File variable, and the variables required by your direction.
-2. Configure `NVFTP_UPLOAD_DIR`, `NVFTP_DOWNLOAD_DIR`, or both, depending on the intended direction.
-3. For inbound synchronization, also configure the target-project variables listed in the [configuration reference](docs/reference/configuration.md).
-4. Open **Build → Pipelines → New pipeline**, select `SYNC_DIRECTION`, and run the pipeline.
-
-The inbound workflow never pushes to the target default branch and never merges its merge request. Human review remains required.
-
-The application under [`examples/gitlab-to-nvftp-container`](examples/gitlab-to-nvftp-container/) is only a demonstration workload. Production repositories select their own Docker build context through CI/CD variables.
+See [`docs/reference/configuration.md`](docs/reference/configuration.md) for the
+full variable reference and
+[`docs/how-to/adopt-in-an-nvis-ova-repository.md`](docs/how-to/adopt-in-an-nvis-ova-repository.md)
+for rollout steps.

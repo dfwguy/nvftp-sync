@@ -1,7 +1,10 @@
 
 # NVFTP to GitLab Sync Implementation Spec
 
-> Status: implemented. This document records the original inbound requirements. For current operating instructions and configuration, use the [Diátaxis documentation index](README.md#documentation).
+> Status: superseded historical design. It describes the former separate
+> automation-project architecture. The current implementation runs imported
+> jobs directly in the target repository; use [README.md](README.md) for current
+> operating instructions.
 
 Implement an inbound sync workflow for the GitLab repository [nvftp-sync](https://gitlab-master.nvidia.com/micheller/nvftp-sync) that detects changes from a designated NVFTP folder, validates them with the standard test suite, and creates a merge request into `main` for human review. Do not implement any automatic merge behavior.
 

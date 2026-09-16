@@ -1,57 +1,48 @@
 # Configuration reference
 
-## Pipeline selection
+All synchronization variables belong in the target project. The tooling
+project does not need NVFTP or target-repository credentials.
 
-| Variable | Default | Accepted values | Purpose |
-| --- | --- | --- | --- |
-| `SYNC_DIRECTION` | `gitlab-to-nvftp` | `gitlab-to-nvftp`, `nvftp-to-gitlab`, `both` | Selects which jobs are added to the pipeline |
+## Template controls
 
-## Shared NVFTP variables
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NVFTP_SYNC_PROJECT_URL` | `$CI_SERVER_URL/nvis-ova/nvftp-sync.git` | Tooling repository cloned by jobs |
+| `NVFTP_SYNC_TOOLS_REF` | `main` | Tooling tag or commit; match the included template revision |
+| `NVFTP_SYNC_JOB_IMAGE` | `alpine:3.20` | Alpine-compatible job image; override with a target test image when needed |
+| `NVFTP_SYNC_INBOUND_ENABLED` | `false` | Enables scheduled and explicitly selected manual inbound jobs |
+| `NVFTP_SYNC_OUTBOUND_ENABLED` | `false` | Enables publication after synchronized content changes on the default branch |
+| `TARGET_SYNC_PATH` | `synced-content` | Target-repository directory managed by synchronization |
+| `TARGET_TEST_COMMAND` | none | Required validation command for inbound candidates |
+| `SYNC_BRANCH_PREFIX` | `nvftp-sync` | Prefix for generated proposal branches |
+| `SYNC_SOURCE_NAME` | download-directory basename | Human-readable source name used in branches and MRs |
 
-| Variable | Required | Type | Purpose |
-| --- | --- | --- | --- |
-| `NVFTP_USER` | Yes | Variable | NVFTP-generated SSH username |
-| `NVFTP_PRIVATE_KEY` | Yes | **File** | Dedicated passwordless private key |
-| `NVFTP_HOST` | No | Variable | SFTP host; defaults to `transfer.nvftp.nvidia.com` |
-| `NVFTP_KNOWN_HOSTS` | No | Variable or File | Trusted host entry; enables strict host verification |
-| `NVFTP_REMOTE_DIR` | Deprecated | Variable | Compatibility fallback for either direction-specific directory |
+## NVFTP connection
 
-Without `NVFTP_KNOWN_HOSTS`, the scripts use OpenSSH's `accept-new` policy. With it, they use strict checking against the supplied entry.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NVFTP_USER` | yes | NVFTP-generated SSH username |
+| `NVFTP_PRIVATE_KEY` | yes | Passwordless private key configured as a GitLab File variable |
+| `NVFTP_HOST` | no | Defaults to `transfer.nvftp.nvidia.com` |
+| `NVFTP_KNOWN_HOSTS` | recommended | Trusted server entry; enables strict host verification |
+| `NVFTP_DOWNLOAD_DIR` | inbound | Incoming proposal directory |
+| `NVFTP_UPLOAD_DIR` | outbound | Published approved-content directory |
+| `NVFTP_DOWNLOAD_MANIFEST` | no | Producer-maintained manifest used to skip an unchanged download |
 
-## GitLab-to-NVFTP variables
+Use separate download and upload directories. The download directory contains
+unreviewed proposals; the upload directory represents the approved default
+branch.
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `NVFTP_UPLOAD_DIR` | Yes | — | Remote directory receiving the image archive |
-| `OUTBOUND_BUILD_CONTEXT` | No | `examples/gitlab-to-nvftp-container` | Docker build context |
-| `OUTBOUND_DOCKERFILE` | No | `examples/gitlab-to-nvftp-container/Dockerfile` | Dockerfile path relative to the repository root |
-| `OUTBOUND_IMAGE_TAG` | No | `$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA` | Registry image built and exported by the pipeline |
-| `OUTBOUND_ARCHIVE_NAME` | No | `container-image.tar.gz` | Artifact name and remote upload filename |
-| `OUTBOUND_FORCE_UPLOAD` | No | `false` | Set to `true` to upload even when the remote checksum matches |
+## GitLab credentials
 
-The defaults exercise the foundation repository's example. A production NVIS OVA repository normally sets `OUTBOUND_BUILD_CONTEXT=.` and points `OUTBOUND_DOCKERFILE` at its own Dockerfile.
+`GITLAB_API_TOKEN` is required for inbound operation. Store a masked, protected
+target-project access token with the minimum role/scopes needed to push a
+non-protected sync branch and create or update an MR (`api` and
+`write_repository` in the current setup). It must not be allowed to push to the
+protected default branch.
 
-## NVFTP-to-GitLab variables
+The target project also needs permission to clone the tooling project with its
+`CI_JOB_TOKEN`. Add it to the tooling project's job-token allowlist.
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `NVFTP_DOWNLOAD_DIR` | Yes | — | Remote folder downloaded recursively |
-| `NVFTP_DOWNLOAD_MANIFEST` | No | unset | Remote manifest used to skip an unchanged recursive download |
-| `GITLAB_API_TOKEN` | Yes | — | Token for target clone, branch push, and MR API calls |
-| `TARGET_PROJECT_PATH` | Yes | — | Target `namespace/project` path |
-| `TARGET_PROJECT_ID` | Yes | — | Numeric target GitLab project ID |
-| `TARGET_TEST_COMMAND` | Yes | — | Validation command run from the target repository root |
-| `TARGET_DEFAULT_BRANCH` | No | `main` | Comparison base and MR target |
-| `TARGET_SYNC_PATH` | No | `synced-content` | Repository-relative path mirrored from NVFTP |
-| `TARGET_REPO_URL` | No | Derived | Override target clone/push URL |
-| `TARGET_GITLAB_API_URL` | No | `CI_API_V4_URL` | Override target GitLab API base URL |
-| `SYNC_BRANCH_PREFIX` | No | `nvftp-sync` | Prefix for deterministic proposal branches |
-| `SYNC_SOURCE_NAME` | No | Download-folder basename | Label used in branch and MR metadata |
-| `GITLAB_SYNC_USER_NAME` | No | `NVFTP Sync Bot` | Commit author name |
-| `GITLAB_SYNC_USER_EMAIL` | No | `nvftp-sync@noreply.invalid` | Commit author email |
-
-`TARGET_SYNC_PATH` must be a safe repository-relative subdirectory. Root paths, `.git`, and parent traversal are rejected.
-
-The token user needs repository read/write access and API access in the target project. Keep the default branch protected and do not grant permission to bypass its rules.
-
-When `NVFTP_DOWNLOAD_MANIFEST` is set, the producer must update that remote file whenever any synchronized content changes and only after the content upload completes. The pipeline checkpoints its checksum only after the entire inbound workflow succeeds.
+The template derives the target path, ID, default branch, and repository URL
+from `CI_PROJECT_*`; those values no longer need manual configuration.

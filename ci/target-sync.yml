@@ -1,0 +1,68 @@
+# Include this file from a target repository. The jobs run in the target
+# project; nvftp-sync supplies tooling only and never publishes its own tree.
+variables:
+  NVFTP_SYNC_PROJECT_URL: "$CI_SERVER_URL/nvis-ova/nvftp-sync.git"
+  NVFTP_SYNC_TOOLS_REF: "main"
+  NVFTP_SYNC_JOB_IMAGE: "alpine:3.20"
+  NVFTP_SYNC_INBOUND_ENABLED: "false"
+  NVFTP_SYNC_OUTBOUND_ENABLED: "false"
+  TARGET_SYNC_PATH: "synced-content"
+  SYNC_BRANCH_PREFIX: "nvftp-sync"
+  GIT_DEPTH: "0"
+
+.nvftp-sync-target-job:
+  image: "$NVFTP_SYNC_JOB_IMAGE"
+  stage: .pre
+  resource_group: "nvftp-sync-$CI_PROJECT_ID"
+  before_script:
+    - apk add --no-cache git openssh-client rsync curl jq lftp
+  variables:
+    TARGET_PROJECT_PATH: "$CI_PROJECT_PATH"
+    TARGET_PROJECT_ID: "$CI_PROJECT_ID"
+    TARGET_DEFAULT_BRANCH: "$CI_DEFAULT_BRANCH"
+    TARGET_REPO_URL: "$CI_PROJECT_URL.git"
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    expire_in: 7 days
+
+nvftp-sync-inbound:
+  extends: .nvftp-sync-target-job
+  cache:
+    key: "$CI_PROJECT_ID-nvftp-download-state"
+    paths:
+      - .nvftp-cache/
+    policy: pull-push
+  rules:
+    - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "web" && $SYNC_DIRECTION == "nvftp-to-gitlab" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - |
+      tools_dir=$(mktemp -d)
+      trap 'rm -rf "$tools_dir"' EXIT HUP INT TERM
+      case "$NVFTP_SYNC_PROJECT_URL" in
+        https://*) tools_url="https://gitlab-ci-token:${CI_JOB_TOKEN}@${NVFTP_SYNC_PROJECT_URL#https://}" ;;
+        http://*) tools_url="http://gitlab-ci-token:${CI_JOB_TOKEN}@${NVFTP_SYNC_PROJECT_URL#http://}" ;;
+        *) printf 'Unsupported NVFTP_SYNC_PROJECT_URL: %s\n' "$NVFTP_SYNC_PROJECT_URL" >&2; exit 1 ;;
+      esac
+      git clone --quiet --depth 1 --branch "$NVFTP_SYNC_TOOLS_REF" "$tools_url" "$tools_dir"
+      "$tools_dir/scripts/run_inbound_sync.sh"
+
+nvftp-sync-outbound:
+  extends: .nvftp-sync-target-job
+  rules:
+    - if: '$NVFTP_SYNC_OUTBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - "$TARGET_SYNC_PATH/**/*"
+  script:
+    - |
+      tools_dir=$(mktemp -d)
+      trap 'rm -rf "$tools_dir"' EXIT HUP INT TERM
+      case "$NVFTP_SYNC_PROJECT_URL" in
+        https://*) tools_url="https://gitlab-ci-token:${CI_JOB_TOKEN}@${NVFTP_SYNC_PROJECT_URL#https://}" ;;
+        http://*) tools_url="http://gitlab-ci-token:${CI_JOB_TOKEN}@${NVFTP_SYNC_PROJECT_URL#http://}" ;;
+        *) printf 'Unsupported NVFTP_SYNC_PROJECT_URL: %s\n' "$NVFTP_SYNC_PROJECT_URL" >&2; exit 1 ;;
+      esac
+      git clone --quiet --depth 1 --branch "$NVFTP_SYNC_TOOLS_REF" "$tools_url" "$tools_dir"
+      "$tools_dir/scripts/nvftp_publish.sh"
