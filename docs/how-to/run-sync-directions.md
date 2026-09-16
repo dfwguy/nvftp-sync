@@ -3,8 +3,7 @@
 Normal operation is automatic:
 
 - A target-project schedule runs inbound synchronization.
-- A default-branch push that changes `TARGET_SYNC_PATH` runs outbound
-  publication.
+- A target default-branch push runs outbound publication.
 
 For an initial inbound test, open **Build → Pipelines → New pipeline** in the
 target project, select its default branch, and add

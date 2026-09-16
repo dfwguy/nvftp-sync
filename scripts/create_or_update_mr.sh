@@ -11,7 +11,7 @@ require_var TARGET_BASE_SHA
 
 reports_dir=${REPORTS_DIR:-reports}
 download_dir=$(nvftp_download_dir)
-target_path=${TARGET_SYNC_PATH:-synced-content}
+target_path=${TARGET_SYNC_PATH:-.}
 target_branch=${TARGET_DEFAULT_BRANCH:-main}
 api_base=${TARGET_GITLAB_API_URL:-$CI_API_V4_URL}
 api_url=${api_base%/}/projects/$TARGET_PROJECT_ID/merge_requests

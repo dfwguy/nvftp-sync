@@ -21,9 +21,10 @@ export TARGET_PROJECT_PATH=${TARGET_PROJECT_PATH:-$CI_PROJECT_PATH}
 export TARGET_PROJECT_ID=${TARGET_PROJECT_ID:-$CI_PROJECT_ID}
 export TARGET_DEFAULT_BRANCH=${TARGET_DEFAULT_BRANCH:-$CI_DEFAULT_BRANCH}
 export TARGET_REPO_URL=${TARGET_REPO_URL:-${CI_PROJECT_URL}.git}
+reports_dir=${REPORTS_DIR:-reports}
 
 "$SCRIPT_DIR/nvftp_pull.sh"
-. reports/pull.env
+. "$reports_dir/pull.env"
 export REMOTE_DOWNLOAD_SKIPPED DOWNLOAD_STATE_FILE
 
 if [ "$REMOTE_DOWNLOAD_SKIPPED" = "true" ]; then
@@ -34,7 +35,7 @@ fi
 
 "$SCRIPT_DIR/prepare_candidate.sh" "$CI_PROJECT_DIR"
 "$SCRIPT_DIR/detect_changes.sh" "$CI_PROJECT_DIR"
-. reports/sync.env
+. "$reports_dir/sync.env"
 export HAS_CHANGES FILES_ADDED FILES_MODIFIED FILES_DELETED SOURCE_SLUG TARGET_BASE_SHA
 
 if [ "$HAS_CHANGES" != "true" ]; then
@@ -44,13 +45,13 @@ if [ "$HAS_CHANGES" != "true" ]; then
 fi
 
 set +e
-"$SCRIPT_DIR/run_target_tests.sh" "$CI_PROJECT_DIR" >reports/test.log 2>&1
+"$SCRIPT_DIR/run_target_tests.sh" "$CI_PROJECT_DIR" >"$reports_dir/test.log" 2>&1
 test_status=$?
 set -e
-cat reports/test.log
+cat "$reports_dir/test.log"
 [ "$test_status" -eq 0 ] || exit "$test_status"
 "$SCRIPT_DIR/publish_sync_branch.sh" "$CI_PROJECT_DIR"
-. reports/publish.env
+. "$reports_dir/publish.env"
 export PUBLISHED_BRANCH
 "$SCRIPT_DIR/create_or_update_mr.sh"
 "$SCRIPT_DIR/checkpoint_download_manifest.sh"

@@ -10,24 +10,26 @@ require_var NVFTP_PRIVATE_KEY
 NVFTP_HOST=${NVFTP_HOST:-transfer.nvftp.nvidia.com}
 remote_dir=$(nvftp_download_dir)
 validate_nvftp_remote_dir "$remote_dir"
-source_dir=tmp/nvftp-source
+source_dir=${NVFTP_SOURCE_DIR:-tmp/nvftp-source}
+reports_dir=${REPORTS_DIR:-reports}
+cache_dir=${NVFTP_CACHE_DIR:-.nvftp-cache}
 key_file=$(mktemp)
 batch_file=$(mktemp)
 trap 'rm -f "$key_file" "$batch_file"' EXIT HUP INT TERM
 
 rm -rf "$source_dir"
-mkdir -p tmp reports .nvftp-cache
+mkdir -p "$(dirname "$source_dir")" "$reports_dir" "$cache_dir"
 prepare_nvftp_ssh "$key_file"
 
 remote_download_skipped=false
 download_state_file=
 if [ -n "${NVFTP_DOWNLOAD_MANIFEST:-}" ]; then
   validate_nvftp_remote_dir "$NVFTP_DOWNLOAD_MANIFEST"
-  manifest_file=reports/download-manifest
-  manifest_checksum_file=reports/download-manifest.sha256
+  manifest_file=$reports_dir/download-manifest
+  manifest_checksum_file=$reports_dir/download-manifest.sha256
   state_id=$(printf '%s\n%s\n' "$remote_dir" "$NVFTP_DOWNLOAD_MANIFEST" \
     | sha256sum | awk '{print $1}')
-  download_state_file=.nvftp-cache/$state_id.sha256
+  download_state_file=$cache_dir/$state_id.sha256
 
   printf 'get "%s" "%s"\nbye\n' \
     "$NVFTP_DOWNLOAD_MANIFEST" "$manifest_file" >"$batch_file"
@@ -49,7 +51,7 @@ fi
 {
   printf 'REMOTE_DOWNLOAD_SKIPPED=%s\n' "$remote_download_skipped"
   printf 'DOWNLOAD_STATE_FILE=%s\n' "$download_state_file"
-} >reports/pull.env
+} >"$reports_dir/pull.env"
 
 if [ "$remote_download_skipped" = "true" ]; then
   printf 'NVFTP manifest is unchanged; download of %s skipped.\n' "$remote_dir"

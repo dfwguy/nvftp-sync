@@ -6,7 +6,7 @@ folder. The producer must update it only after all incoming files are complete.
 The target job checkpoints that manifest only after validation and MR handling
 succeed.
 
-Outbound runs only when `TARGET_SYNC_PATH` changes on the target default
-branch. `lftp mirror` compares the local and remote trees and transfers the
-needed changes. A `.nvftp-sync-manifest` containing the Git commit and tree hash
-is written after successful publication.
+Outbound runs on target default-branch pushes. `lftp mirror` compares the local
+and remote trees and transfers the needed changes. A `.nvftp-sync-manifest`
+containing the Git commit and tree hash is written after successful
+publication.

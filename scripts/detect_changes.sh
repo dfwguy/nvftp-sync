@@ -6,7 +6,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 repo_dir=${1:-tmp/target-repo}
 reports_dir=${REPORTS_DIR:-$PWD/reports}
-target_path=${TARGET_SYNC_PATH:-synced-content}
+target_path=${TARGET_SYNC_PATH:-.}
 
 validate_target_configuration
 validate_target_path "$target_path"
@@ -15,9 +15,12 @@ mkdir -p "$reports_dir"
 
 base_sha=$(git -C "$repo_dir" rev-parse HEAD)
 git -C "$repo_dir" add -A -- "$target_path"
+if [ "$target_path" = "." ]; then
+  git -C "$repo_dir" reset --quiet -- .gitlab-ci.yml .nvftp-sync-runtime
+fi
 git -C "$repo_dir" diff --cached --no-renames --name-status -- "$target_path" >"$reports_dir/changed_files.txt"
 git -C "$repo_dir" diff --cached --no-renames --stat -- "$target_path" >"$reports_dir/diff_summary.txt"
-git -C "$repo_dir" status --porcelain -- "$target_path" >"$reports_dir/git_status.txt"
+git -C "$repo_dir" diff --cached --no-renames --name-status -- "$target_path" >"$reports_dir/git_status.txt"
 
 if [ -s "$reports_dir/changed_files.txt" ]; then
   has_changes=true

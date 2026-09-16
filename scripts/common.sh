@@ -96,7 +96,7 @@ validate_target_configuration() {
 validate_target_path() {
   target_path=$1
   case "$target_path" in
-    ""|.|..|/*|.git|.git/*|../*|*/../*|*/..|*/./*|*/.)
+    ""|..|/*|.git|.git/*|../*|*/../*|*/..|*/./*|*/.)
       die "unsafe TARGET_SYNC_PATH: $target_path"
       ;;
   esac

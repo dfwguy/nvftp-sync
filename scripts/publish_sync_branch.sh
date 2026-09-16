@@ -6,7 +6,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 repo_dir=${1:-tmp/target-repo}
 reports_dir=${REPORTS_DIR:-$PWD/reports}
-target_path=${TARGET_SYNC_PATH:-synced-content}
+target_path=${TARGET_SYNC_PATH:-.}
 branch_prefix=${SYNC_BRANCH_PREFIX:-nvftp-sync}
 
 validate_target_configuration

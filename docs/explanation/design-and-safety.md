@@ -12,8 +12,12 @@ Inbound NVFTP files are external proposals. They are overlaid with deletion
 awareness, validated, and pushed to a deterministic non-protected branch. The
 automation never merges the MR or pushes to the target default branch.
 
-Outbound publication is selected only for default-branch pushes that change the
-synchronized path. Thus an unreviewed sync branch cannot publish content.
+Outbound publication is selected only for default-branch pushes. Thus an
+unreviewed sync branch cannot publish content.
+
+Root synchronization deliberately preserves `.git/`, `.gitlab-ci.yml`, and the
+`.nvftp-sync-runtime/` working directory. All other tracked codebase content is
+subject to addition, modification, and deletion in the reviewable MR.
 
 ## Workspace separation
 

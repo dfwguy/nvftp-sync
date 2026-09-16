@@ -6,9 +6,12 @@ variables:
   NVFTP_SYNC_JOB_IMAGE: "alpine:3.20"
   NVFTP_SYNC_INBOUND_ENABLED: "false"
   NVFTP_SYNC_OUTBOUND_ENABLED: "false"
-  TARGET_SYNC_PATH: "synced-content"
+  TARGET_SYNC_PATH: "."
   SYNC_BRANCH_PREFIX: "nvftp-sync"
   GIT_DEPTH: "0"
+  NVFTP_SOURCE_DIR: "$CI_PROJECT_DIR/.nvftp-sync-runtime/source"
+  REPORTS_DIR: "$CI_PROJECT_DIR/.nvftp-sync-runtime/reports"
+  NVFTP_CACHE_DIR: "$CI_PROJECT_DIR/.nvftp-sync-runtime/cache"
 
 .nvftp-sync-target-job:
   image: "$NVFTP_SYNC_JOB_IMAGE"
@@ -24,7 +27,7 @@ variables:
   artifacts:
     when: always
     paths:
-      - reports/
+      - .nvftp-sync-runtime/reports/
     expire_in: 7 days
 
 nvftp-sync-inbound:
@@ -32,7 +35,7 @@ nvftp-sync-inbound:
   cache:
     key: "$CI_PROJECT_ID-nvftp-download-state"
     paths:
-      - .nvftp-cache/
+      - .nvftp-sync-runtime/cache/
     policy: pull-push
   rules:
     - if: '$NVFTP_SYNC_INBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -53,8 +56,6 @@ nvftp-sync-outbound:
   extends: .nvftp-sync-target-job
   rules:
     - if: '$NVFTP_SYNC_OUTBOUND_ENABLED == "true" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - "$TARGET_SYNC_PATH/**/*"
   script:
     - |
       tools_dir=$(mktemp -d)

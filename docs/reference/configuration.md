@@ -12,7 +12,7 @@ project does not need NVFTP or target-repository credentials.
 | `NVFTP_SYNC_JOB_IMAGE` | `alpine:3.20` | Alpine-compatible job image; override with a target test image when needed |
 | `NVFTP_SYNC_INBOUND_ENABLED` | `false` | Enables scheduled and explicitly selected manual inbound jobs |
 | `NVFTP_SYNC_OUTBOUND_ENABLED` | `false` | Enables publication after synchronized content changes on the default branch |
-| `TARGET_SYNC_PATH` | `synced-content` | Target-repository directory managed by synchronization |
+| `TARGET_SYNC_PATH` | `.` | Content scope; `.` reconciles the target codebase root |
 | `TARGET_TEST_COMMAND` | none | Required validation command for inbound candidates |
 | `SYNC_BRANCH_PREFIX` | `nvftp-sync` | Prefix for generated proposal branches |
 | `SYNC_SOURCE_NAME` | download-directory basename | Human-readable source name used in branches and MRs |

@@ -40,7 +40,7 @@ variables:
   NVFTP_SYNC_TOOLS_REF: "<release-tag>"
   NVFTP_SYNC_INBOUND_ENABLED: "true"
   NVFTP_SYNC_OUTBOUND_ENABLED: "true"
-  TARGET_SYNC_PATH: "synced-content"
+  TARGET_SYNC_PATH: "."
   TARGET_TEST_COMMAND: "<target validation command>"
 ```
 
@@ -73,21 +73,25 @@ with `SYNC_DIRECTION=nvftp-to-gitlab`.
 Inbound behavior:
 
 1. Recursively download `NVFTP_DOWNLOAD_DIR`.
-2. Mirror it into `TARGET_SYNC_PATH`, including deletions.
+2. Reconcile it against the repository root, including deletions.
 3. Run `TARGET_TEST_COMMAND` against the candidate working tree.
 4. Push or refresh a deterministic sync branch.
 5. Create or update an MR in the target repository.
 
 Outbound behavior:
 
-1. Run only after a push to the target default branch that changes
-   `TARGET_SYNC_PATH`.
-2. Mirror that directory to `NVFTP_UPLOAD_DIR`, including remote deletions.
+1. Run only after a push to the target default branch.
+2. Mirror the approved codebase to `NVFTP_UPLOAD_DIR`, including remote
+   deletions.
 3. Write `.nvftp-sync-manifest` last so consumers can identify a completed
    publication and its exact Git commit.
 
 The two jobs share a project-scoped `resource_group`, so they cannot operate on
 the workspace concurrently.
+
+Root synchronization protects `.git/`, `.gitlab-ci.yml`, and
+`.nvftp-sync-runtime/`. These control/runtime paths are neither imported from
+nor published to NVFTP.
 
 ## Local verification
 
